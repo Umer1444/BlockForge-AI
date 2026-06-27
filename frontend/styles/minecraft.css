@@ -1,0 +1,382 @@
+/*
+ * BlockForge AI – Minecraft-Inspired Design System
+ * ═══════════════════════════════════════════════════
+ */
+
+/* ── Pixel Font ──────────────────────────────── */
+
+:root {
+  /* ── Block Colors ── */
+  --mc-dirt: #8B6914;
+  --mc-dirt-dark: #5C4A0E;
+  --mc-grass: #5D8C30;
+  --mc-grass-dark: #3E6B1F;
+  --mc-stone: #7F7F7F;
+  --mc-stone-dark: #5A5A5A;
+  --mc-stone-light: #A0A0A0;
+  --mc-bedrock: #1A1A1A;
+  --mc-obsidian: #0D0D1A;
+  --mc-diamond: #4AEDD9;
+  --mc-emerald: #17DD62;
+  --mc-gold: #FCDB05;
+  --mc-redstone: #FF1A1A;
+  --mc-lapis: #2546BD;
+  --mc-iron: #D8D8D8;
+  --mc-coal: #2C2C2C;
+  --mc-wood: #A0724A;
+  --mc-wood-dark: #6B4226;
+  --mc-sand: #DBD3A0;
+  --mc-netherite: #3D3535;
+
+  /* ── UI Colors ── */
+  --bg-primary: #1a0e2e;
+  --bg-secondary: #0d0a1a;
+  --bg-card: rgba(30, 20, 50, 0.85);
+  --bg-glass: rgba(20, 15, 35, 0.6);
+  --text-primary: #e8e0f0;
+  --text-secondary: #9b8ab8;
+  --text-muted: #6d5a8a;
+  --border-pixel: #3a2860;
+
+  /* ── Glow Effects ── */
+  --glow-green: 0 0 10px #17DD62, 0 0 30px #17DD6266, 0 0 60px #17DD6233;
+  --glow-diamond: 0 0 10px #4AEDD9, 0 0 30px #4AEDD966;
+  --glow-gold: 0 0 10px #FCDB05, 0 0 20px #FCDB0555;
+  --glow-redstone: 0 0 10px #FF1A1A, 0 0 25px #FF1A1A55;
+  --glow-xp: 0 0 8px #7FFF00, 0 0 20px #7FFF0066;
+
+  /* ── Spacing ── */
+  --pixel: 4px;
+}
+
+/* ── Base Reset ──────────────────────────────── */
+* {
+  image-rendering: pixelated;
+}
+
+/* ── Pixel Font Classes ──────────────────────── */
+.font-pixel {
+  font-family: 'Press Start 2P', monospace;
+  letter-spacing: 1px;
+}
+
+/* ── Block Buttons ───────────────────────────── */
+.mc-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  padding: 12px 24px;
+  border: 4px solid;
+  border-image: none;
+  position: relative;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.05s ease;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  box-shadow:
+    inset -4px -4px 0 rgba(0, 0, 0, 0.3),
+    inset 4px 4px 0 rgba(255, 255, 255, 0.15),
+    0 4px 0 rgba(0, 0, 0, 0.4);
+}
+
+.mc-btn:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset -4px -4px 0 rgba(0, 0, 0, 0.3),
+    inset 4px 4px 0 rgba(255, 255, 255, 0.2),
+    0 6px 0 rgba(0, 0, 0, 0.4);
+}
+
+.mc-btn:active {
+  transform: translateY(4px);
+  box-shadow:
+    inset -4px -4px 0 rgba(255, 255, 255, 0.1),
+    inset 4px 4px 0 rgba(0, 0, 0, 0.3),
+    0 0 0 rgba(0, 0, 0, 0.4);
+}
+
+.mc-btn-grass {
+  background: var(--mc-grass);
+  border-color: var(--mc-grass-dark);
+  color: #fff;
+}
+
+.mc-btn-stone {
+  background: var(--mc-stone);
+  border-color: var(--mc-stone-dark);
+  color: #fff;
+}
+
+.mc-btn-diamond {
+  background: linear-gradient(180deg, #6DF5E7, #2AB5A7);
+  border-color: #1A8B80;
+  color: #fff;
+  box-shadow:
+    inset -4px -4px 0 rgba(0, 0, 0, 0.3),
+    inset 4px 4px 0 rgba(255, 255, 255, 0.25),
+    0 4px 0 rgba(0, 0, 0, 0.4),
+    var(--glow-diamond);
+}
+
+.mc-btn-redstone {
+  background: linear-gradient(180deg, #FF4040, #CC1010);
+  border-color: #991010;
+  color: #fff;
+}
+
+.mc-btn-gold {
+  background: linear-gradient(180deg, #FFE55C, #FCDB05);
+  border-color: #C4A800;
+  color: #3a2800;
+}
+
+/* ── Card / Panel ────────────────────────────── */
+.mc-panel {
+  background: var(--bg-card);
+  border: 4px solid var(--border-pixel);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.04),
+    0 0 40px rgba(23, 221, 98, 0.05);
+  backdrop-filter: blur(12px);
+}
+
+.mc-panel-header {
+  background: linear-gradient(180deg, var(--mc-grass) 0%, var(--mc-grass-dark) 50%, var(--mc-dirt) 100%);
+  border-bottom: 4px solid var(--mc-dirt-dark);
+  padding: 16px 20px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+}
+
+/* ── Inventory Grid ──────────────────────────── */
+.mc-inventory {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  background: var(--mc-stone-dark);
+  border: 4px solid var(--mc-coal);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.05);
+}
+
+.mc-slot {
+  aspect-ratio: 1;
+  background: var(--bg-glass);
+  border: 2px solid var(--border-pixel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s ease;
+  cursor: pointer;
+}
+
+.mc-slot:hover {
+  border-color: var(--mc-emerald);
+  box-shadow: var(--glow-green);
+}
+
+/* ── XP Bar ──────────────────────────────────── */
+.mc-xp-bar {
+  height: 10px;
+  background: var(--mc-coal);
+  border: 2px solid var(--mc-stone-dark);
+  overflow: hidden;
+  position: relative;
+}
+
+.mc-xp-fill {
+  height: 100%;
+  background: linear-gradient(180deg, #A4FF32, #7FFF00, #5AC800);
+  box-shadow: var(--glow-xp);
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.mc-xp-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ── Animated Shine ──────────────────────────── */
+@keyframes mc-shine {
+  0% {
+    background-position: -200% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.mc-shine {
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.08) 45%,
+      rgba(255, 255, 255, 0.15) 50%,
+      rgba(255, 255, 255, 0.08) 55%,
+      transparent 100%);
+  background-size: 200% 100%;
+  animation: mc-shine 3s ease infinite;
+}
+
+/* ── Crafting Animation ──────────────────────── */
+@keyframes mc-craft-spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+
+  25% {
+    transform: rotate(90deg) scale(0.9);
+  }
+
+  50% {
+    transform: rotate(180deg) scale(1);
+  }
+
+  75% {
+    transform: rotate(270deg) scale(0.9);
+  }
+
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes mc-craft-pulse {
+
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes mc-particles {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(-40px) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+.mc-craft-spin {
+  animation: mc-craft-spin 2s linear infinite;
+}
+
+.mc-craft-pulse {
+  animation: mc-craft-pulse 1.5s ease infinite;
+}
+
+/* ── Tooltip ─────────────────────────────────── */
+.mc-tooltip {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  background: var(--mc-obsidian);
+  border: 3px solid var(--mc-lapis);
+  padding: 8px 12px;
+  color: var(--text-primary);
+  box-shadow: 0 0 10px rgba(37, 70, 189, 0.4);
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* ── Text Glow ───────────────────────────────── */
+.mc-text-glow-green {
+  color: var(--mc-emerald);
+  text-shadow: 0 0 8px #17DD62, 0 0 20px #17DD6266;
+}
+
+.mc-text-glow-diamond {
+  color: var(--mc-diamond);
+  text-shadow: 0 0 8px #4AEDD9, 0 0 20px #4AEDD966;
+}
+
+.mc-text-glow-gold {
+  color: var(--mc-gold);
+  text-shadow: 0 0 8px #FCDB05, 0 0 20px #FCDB0566;
+}
+
+.mc-text-glow-redstone {
+  color: var(--mc-redstone);
+  text-shadow: 0 0 8px #FF1A1A, 0 0 20px #FF1A1A66;
+}
+
+/* ── Stone Texture Background ────────────────── */
+.mc-bg-stone {
+  background-color: var(--bg-primary);
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(74, 237, 217, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(23, 221, 98, 0.03) 0%, transparent 50%),
+    repeating-linear-gradient(0deg,
+      transparent,
+      transparent 32px,
+      rgba(255, 255, 255, 0.01) 32px,
+      rgba(255, 255, 255, 0.01) 33px),
+    repeating-linear-gradient(90deg,
+      transparent,
+      transparent 32px,
+      rgba(255, 255, 255, 0.01) 32px,
+      rgba(255, 255, 255, 0.01) 33px);
+}
+
+/* ── Scrollbar ───────────────────────────────── */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--mc-coal);
+  border-left: 2px solid var(--border-pixel);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--mc-stone);
+  border: 2px solid var(--mc-stone-dark);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--mc-stone-light);
+}
+
+/* ── Before/After Slider ─────────────────────── */
+.mc-slider-handle {
+  width: 6px;
+  background: var(--mc-emerald);
+  box-shadow: var(--glow-green);
+  cursor: ew-resize;
+  position: relative;
+}
+
+.mc-slider-handle::before,
+.mc-slider-handle::after {
+  content: '◄';
+  position: absolute;
+  top: 50%;
+  font-size: 10px;
+  color: var(--mc-emerald);
+  text-shadow: var(--glow-green);
+}
+
+.mc-slider-handle::before {
+  content: '◄';
+  right: 12px;
+  transform: translateY(-50%);
+}
+
+.mc-slider-handle::after {
+  content: '►';
+  left: 12px;
+  transform: translateY(-50%);
+}

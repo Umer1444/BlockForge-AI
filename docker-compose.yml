@@ -1,0 +1,100 @@
+# ═══════════════════════════════════════════════
+# BlockForge AI – Docker Compose
+# ═══════════════════════════════════════════════
+
+services:
+  # ── Redis ──────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Backend API ────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - DEBUG=true
+      - GPU_DEVICE=cuda:0
+      - USE_FP16=true
+      - GPU_BATCH_SIZE=4
+    volumes:
+      - upload_data:/data/uploads
+      - frames_data:/data/frames
+      - output_data:/data/output
+      - masks_data:/data/masks
+      - ./ai_models:/app/ai_models:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # ── Celery Worker ──────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    command: >
+      python3 -m celery -A workers.tasks.celery_app worker
+      --loglevel=info --concurrency=1 --pool=solo
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - GPU_DEVICE=cuda:0
+      - USE_FP16=true
+      - GPU_BATCH_SIZE=4
+    volumes:
+      - upload_data:/data/uploads
+      - frames_data:/data/frames
+      - output_data:/data/output
+      - masks_data:/data/masks
+      - ./ai_models:/app/ai_models:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # ── Frontend ───────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+volumes:
+  redis_data:
+  upload_data:
+  frames_data:
+  output_data:
+  masks_data:

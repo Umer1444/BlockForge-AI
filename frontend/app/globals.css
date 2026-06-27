@@ -1,0 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import "tailwindcss";
+@import "../styles/minecraft.css";
+
+:root {
+  --background: #1a0e2e;
+  --foreground: #e8e0f0;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Press Start 2P', monospace;
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(23, 221, 98, 0.3);
+  color: #fff;
+}
+
+/* ── Custom Scrollbar (Pixel Theme) ── */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border: 4px solid transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--mc-stone);
+  border: 2px solid var(--border-pixel);
+  box-shadow: inset -2px -2px 0px rgba(0, 0, 0, 0.5), inset 2px 2px 0px rgba(255, 255, 0, 0.2);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--mc-stone-light);
+}
