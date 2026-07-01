@@ -19,15 +19,15 @@ logger = logging.getLogger("blockforge.ws")
 async def websocket_progress(websocket: WebSocket, job_id: str):
     """
     Stream real-time processing progress via WebSocket.
-    
+
     The Celery worker publishes updates to a Redis Pub/Sub channel
-    named 'blockforge:progress:{job_id}'.  This endpoint subscribes
+    named 'blockforge:progress:{job_id}'. This endpoint subscribes
     to that channel and forwards every message to the connected client.
     """
     await websocket.accept()
-    logger.info(f"⛏  WebSocket connected: job {job_id}")
+    logger.info(f"⛏ WebSocket connected: job {job_id}")
 
-    r = aioredis.from_url(settings.REDIS_URL)
+    r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     pubsub = r.pubsub()
     channel = f"blockforge:progress:{job_id}"
 
@@ -35,35 +35,45 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
         await pubsub.subscribe(channel)
 
         while True:
+            # Listen for messages from Redis
             message = await pubsub.get_message(
                 ignore_subscribe_messages=True,
                 timeout=1.0,
             )
 
             if message and message["type"] == "message":
-                data = json.loads(message["data"])
+                try:
+                    data = json.loads(message["data"])
+                except json.JSONDecodeError:
+                    logger.warning(f"Invalid JSON for job {job_id}: {message['data']}")
+                    continue
+
                 await websocket.send_json(data)
 
                 # Close connection when processing is done
-                if data.get("state") in ("completed", "failed"):
-                    logger.info(f"⛏  Job {job_id} {data['state']}. Closing WS.")
+                if data.get("state") in {"completed", "failed"}:
+                    logger.info(f"⛏ Job {job_id} {data['state']}. Closing WS.")
                     break
 
-            # Send heartbeat every second to keep connection alive
+            # Heartbeat: keep connection alive
             try:
-                await asyncio.wait_for(
-                    websocket.receive_text(),
-                    timeout=0.1,
-                )
+                await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
             except asyncio.TimeoutError:
                 pass
 
     except WebSocketDisconnect:
-        logger.info(f"⛏  WebSocket disconnected: job {job_id}")
+        logger.info(f"⛏ WebSocket disconnected: job {job_id}")
     except Exception as e:
-        logger.error(f"WebSocket error for job {job_id}: {e}")
-        await websocket.send_json({"state": "error", "message": str(e)})
+        logger.exception(f"WebSocket error for job {job_id}")
+        try:
+            await websocket.send_json({"state": "error", "message": str(e)})
+        except Exception:
+            pass
     finally:
-        await pubsub.unsubscribe(channel)
-        await pubsub.close()
-        await r.close()
+        # Ensure cleanup
+        try:
+            await pubsub.unsubscribe(channel)
+            await pubsub.close()
+            await r.close()
+        except Exception as cleanup_err:
+            logger.warning(f"Cleanup error for job {job_id}: {cleanup_err}")
