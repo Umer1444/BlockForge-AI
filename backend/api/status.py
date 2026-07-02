@@ -1,3 +1,4 @@
+import re
 import shutil
 import json
 import logging
@@ -11,6 +12,21 @@ from services.storage_service import storage_service
 
 router = APIRouter()
 logger = logging.getLogger("blockforge.status")
+
+# job_id is always a uuid4 generated server-side (see api/upload.py). Every
+# route below interpolates the caller-supplied job_id directly into a
+# filesystem path (and, for delete/cancel, into shutil.rmtree/subprocess
+# calls), so an unvalidated job_id such as "../../../etc" would let a client
+# read or delete arbitrary files outside the job directories. Reject
+# anything that isn't a well-formed uuid before it touches the filesystem.
+_JOB_ID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+
+def _validate_job_id(job_id: str) -> None:
+    if not _JOB_ID_RE.match(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id")
 
 
 @router.delete("/jobs")
@@ -43,6 +59,7 @@ async def clear_all_history():
 @router.delete("/jobs/{job_id}")
 async def delete_job(job_id: str):
     """Delete a specific job and all its files."""
+    _validate_job_id(job_id)
     try:
         # Also try to cancel if it was processing
         await cancel_job(job_id)
@@ -56,6 +73,7 @@ async def delete_job(job_id: str):
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(job_id: str):
     """Cancel a running job by revoking its Celery task."""
+    _validate_job_id(job_id)
     from workers.tasks import celery_app
 
     status_path = settings.UPLOAD_DIR / job_id / "status.json"
@@ -91,6 +109,7 @@ async def cancel_job(job_id: str):
 @router.get("/status/{job_id}")
 async def get_job_status(job_id: str):
     """Return the current processing status for a job."""
+    _validate_job_id(job_id)
 
     job_dir = settings.UPLOAD_DIR / job_id
     meta_path = job_dir / "metadata.json"
@@ -125,6 +144,7 @@ async def get_job_status(job_id: str):
 @router.get("/status/{job_id}/download")
 async def download_output(job_id: str):
     """Download the processed video."""
+    _validate_job_id(job_id)
     output_dir = settings.OUTPUT_DIR / job_id
     if not output_dir.exists():
         raise HTTPException(status_code=404, detail="Output not found")
