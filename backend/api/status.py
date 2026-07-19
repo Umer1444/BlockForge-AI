@@ -13,12 +13,11 @@ from services.storage_service import storage_service
 router = APIRouter()
 logger = logging.getLogger("blockforge.status")
 
-# job_id is always a uuid4 generated server-side (see api/upload.py). Every
-# route below interpolates the caller-supplied job_id directly into a
-# filesystem path (and, for delete/cancel, into shutil.rmtree/subprocess
-# calls), so an unvalidated job_id such as "../../../etc" would let a client
-# read or delete arbitrary files outside the job directories. Reject
-# anything that isn't a well-formed uuid before it touches the filesystem.
+# job_id is always a uuid4 generated server-side (see api/upload.py). Several
+# routes below interpolate the caller-supplied job_id into filesystem paths and
+# then delete/read files within those directories. Without validation, values
+# like ".." (e.g., via percent-encoded dot segments) can escape the job
+# directories and lead to arbitrary file reads/deletes.
 _JOB_ID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
