@@ -285,4 +285,3 @@ async def preview_auto_detect(job_id: str, request_body: dict = None):
             for d in detections
         ],
     }
-
