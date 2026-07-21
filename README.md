@@ -254,6 +254,14 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
 
 ---
 
+## 🤝 Code of Conduct
+
+We are committed to fostering a welcoming, inclusive, and respectful community. By participating in this project, you agree to abide by our Code of Conduct.
+
+Please read the full [`Code of Conduct`](CODE_OF_CONDUCT.md) before contributing.
+
+---
+
 <div align="center">
   <sub>Built with ⛏ by the BlockForge Team</sub>
 </div>
