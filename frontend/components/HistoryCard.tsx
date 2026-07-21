@@ -1,6 +1,7 @@
 "use client";
-
+import { formatDate, formatFileSize } from "../utils/formatters";
 import React from "react";
+import { formatFileSize, formatDate } from "@/utils/formatters";
 import { Download, Play, CheckCircle2, Clock, AlertCircle, Trash2 } from "lucide-react";
 
 export interface HistoryItem {
@@ -22,6 +23,8 @@ export interface HistoryItem {
     duration?: number;
     file_size?: number;
 }
+const formattedSize = formatFileSize(item.file_size);
+const formattedDate = formatDate(item.created_at);
 
 interface HistoryCardProps {
     item: HistoryItem;
@@ -33,11 +36,7 @@ interface HistoryCardProps {
 }
 
 const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDownload, onDelete, isActive, apiUrl }) => {
-    const formattedSize = item.file_size
-        ? (item.file_size / (1024 * 1024)).toFixed(1) + " MB"
-        : "Unknown size";
-
-    const formattedDate = new Date(item.created_at * 1000).toLocaleDateString();
+    
 
     const getStatusIcon = () => {
         switch (item.state.toLowerCase()) {
