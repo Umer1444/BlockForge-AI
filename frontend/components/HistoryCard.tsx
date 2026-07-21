@@ -1,5 +1,5 @@
 "use client";
-
+import { STATUS_CONFIG, DEFAULT_STATUS } from "../utils/statusConfig";
 import React from "react";
 import { Download, Play, CheckCircle2, Clock, AlertCircle, Trash2 } from "lucide-react";
 
@@ -39,14 +39,10 @@ const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDownload, on
 
     const formattedDate = new Date(item.created_at * 1000).toLocaleDateString();
 
-    const getStatusIcon = () => {
-        switch (item.state.toLowerCase()) {
-            case "completed": return <CheckCircle2 className="w-3 h-3 text-[var(--mc-emerald)]" />;
-            case "processing": return <Clock className="w-3 h-3 text-[var(--mc-gold)] animate-pulse" />;
-            case "failed": return <AlertCircle className="w-3 h-3 text-[var(--mc-redstone)]" />;
-            default: return <Clock className="w-3 h-3 text-[var(--text-muted)]" />;
-        }
-    };
+   const status =
+    STATUS_CONFIG[item.state.toLowerCase()] ?? DEFAULT_STATUS;
+
+const StatusIcon = status.icon;
 
     const getOrientationBadge = () => {
         if (!item.orientation) return null;
@@ -85,7 +81,10 @@ const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDownload, on
 
                 {/* Status Badge */}
                 <div className="absolute top-1 right-1 px-1 py-0.5 bg-black/60 rounded flex items-center gap-1">
-                    {getStatusIcon()}
+                    <StatusIcon
+    aria-hidden="true"
+    className={`w-3 h-3 ${status.className}`}
+/>
                 </div>
             </div>
 
