@@ -39,14 +39,18 @@ const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDownload, on
 
     const formattedDate = new Date(item.created_at * 1000).toLocaleDateString();
 
-    const getStatusIcon = () => {
-        switch (item.state.toLowerCase()) {
-            case "completed": return <CheckCircle2 className="w-3 h-3 text-[var(--mc-emerald)]" />;
-            case "processing": return <Clock className="w-3 h-3 text-[var(--mc-gold)] animate-pulse" />;
-            case "failed": return <AlertCircle className="w-3 h-3 text-[var(--mc-redstone)]" />;
-            default: return <Clock className="w-3 h-3 text-[var(--text-muted)]" />;
-        }
-    };
+  const getStatusIcon = () => {
+    switch (item.state.toLowerCase()) {
+        case "completed":
+            return <CheckCircle2 aria-hidden="true" className="w-3 h-3 text-[var(--mc-emerald)]" />;
+        case "processing":
+            return <Clock aria-hidden="true" className="w-3 h-3 text-[var(--mc-gold)] animate-pulse" />;
+        case "failed":
+            return <AlertCircle aria-hidden="true" className="w-3 h-3 text-[var(--mc-redstone)]" />;
+        default:
+            return <Clock aria-hidden="true" className="w-3 h-3 text-[var(--text-muted)]" />;
+    }
+};
 
     const getOrientationBadge = () => {
         if (!item.orientation) return null;
@@ -64,30 +68,54 @@ const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDownload, on
 
     return (
         <div
-            onClick={() => onClick(item)}
-            className={`group relative mc-panel p-2 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_0_15px_rgba(0,255,0,0.1)] ${isActive ? "border-[var(--mc-emerald)] shadow-[0_0_10px_rgba(0,255,0,0.2)]" : "border-[var(--border-pixel)]"
-                }`}
-        >
+    role="button"
+    tabIndex={0}
+    onClick={() => onClick(item)}
+    onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick(item);
+        }
+    }}
+    aria-label={`Open ${item.filename || "video preview"}`}
+    className={`group relative mc-panel p-2 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_0_15px_rgba(0,255,0,0.1)]
+        focus:outline-none
+        focus-visible:ring-2
+        focus-visible:ring-[var(--mc-emerald)]
+        focus-visible:ring-offset-2
+        focus-visible:ring-offset-[#1a1a1a]
+        ${
+            isActive
+                ? "border-[var(--mc-emerald)] shadow-[0_0_10px_rgba(0,255,0,0.2)]"
+                : "border-[var(--border-pixel)]"
+        }`}
+>
             {/* Thumbnail Preview */}
             <div className="aspect-video mc-panel overflow-hidden mb-2 bg-[#1a1a1a] relative">
                 <img
-                    src={`${apiUrl}${item.thumbnail_url || item.preview_url}`}
-                    alt={item.filename || "Video preview"}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
+    src={`${apiUrl}${item.thumbnail_url || item.preview_url}`}
+    alt={`${item.filename || "Video"} thumbnail`}
+    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+/>
 
                 {/* Overlay Play Hint */}
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <div className="w-8 h-8 rounded-full bg-[var(--mc-emerald)]/20 border border-[var(--mc-emerald)] flex items-center justify-center">
-                        <Play className="w-4 h-4 text-[var(--mc-emerald)] fill-[var(--mc-emerald)]" />
+                        <Play
+    aria-hidden="true"
+    className="w-4 h-4 text-[var(--mc-emerald)] fill-[var(--mc-emerald)]"
+/>
                     </div>
                 </div>
 
                 {/* Status Badge */}
-                <div className="absolute top-1 right-1 px-1 py-0.5 bg-black/60 rounded flex items-center gap-1">
-                    {getStatusIcon()}
-                </div>
-            </div>
+               <div
+    className="absolute top-1 right-1 px-1 py-0.5 bg-black/60 rounded flex items-center gap-1"
+    role="status"
+    aria-label={`Status: ${item.state}`}
+>
+    {getStatusIcon()}
+</div>
 
             {/* Content */}
             <div className="space-y-1">
@@ -115,21 +143,35 @@ const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDownload, on
                     <div className="flex gap-1">
                         {onDelete && (
                             <button
-                                onClick={(e) => onDelete(e, item)}
-                                className="p-1.5 rounded mc-panel bg-[var(--mc-stone)] hover:bg-[var(--mc-redstone)] transition-colors group/del"
-                                title="Delete from Server"
-                            >
-                                <Trash2 className="w-3 h-3 text-white group-hover/del:scale-110 transition-transform" />
-                            </button>
+    onClick={(e) => {
+        e.stopPropagation();
+        onDelete?.(e, item);
+    }}
+    className="p-1.5 rounded mc-panel bg-[var(--mc-stone)] hover:bg-[var(--mc-redstone)] transition-colors group/del"
+    title="Delete from Server"
+    aria-label={`Delete ${item.filename || "video"} from server`}
+>
+    <Trash2
+        aria-hidden="true"
+        className="w-3 h-3 text-white group-hover/del:scale-110 transition-transform"
+    />
+</button>
                         )}
                         {item.state === "completed" && item.output_url && (
                             <button
-                                onClick={(e) => onDownload(e, item)}
-                                className="p-1.5 rounded mc-panel bg-[var(--mc-stone)] hover:bg-[var(--mc-emerald)] transition-colors group/btn"
-                                title="Download Video"
-                            >
-                                <Download className="w-3 h-3 text-white group-hover/btn:scale-110 transition-transform" />
-                            </button>
+    onClick={(e) => {
+        e.stopPropagation();
+        onDownload(e, item);
+    }}
+    className="p-1.5 rounded mc-panel bg-[var(--mc-stone)] hover:bg-[var(--mc-emerald)] transition-colors group/btn"
+    title="Download Video"
+    aria-label={`Download ${item.filename || "video"}`}
+>
+    <Download
+        aria-hidden="true"
+        className="w-3 h-3 text-white group-hover/btn:scale-110 transition-transform"
+    />
+</button>
                         )}
                     </div>
                 </div>
