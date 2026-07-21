@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Download, Play, CheckCircle2, Clock, AlertCircle, Trash2 } from "lucide-react";
 
 export interface HistoryItem {
@@ -32,10 +32,22 @@ interface HistoryCardProps {
     apiUrl: string;
 }
 
+const imageSrc =
+    imageError
+        ? "/images/fallback-thumbnail.png"
+        : `${apiUrl}${item.thumbnail_url || item.preview_url}`;
+
 const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDownload, onDelete, isActive, apiUrl }) => {
     const formattedSize = item.file_size
         ? (item.file_size / (1024 * 1024)).toFixed(1) + " MB"
         : "Unknown size";
+const [imageLoading, setImageLoading] = useState(true);
+const [imageError, setImageError] = useState(false);
+
+const imageSrc =
+    imageError
+        ? "/images/fallback-thumbnail.png"
+        : `${apiUrl}${item.thumbnail_url || item.preview_url}`;
 
     const formattedDate = new Date(item.created_at * 1000).toLocaleDateString();
 
@@ -69,25 +81,50 @@ const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDownload, on
                 }`}
         >
             {/* Thumbnail Preview */}
-            <div className="aspect-video mc-panel overflow-hidden mb-2 bg-[#1a1a1a] relative">
-                <img
-                    src={`${apiUrl}${item.thumbnail_url || item.preview_url}`}
-                    alt={item.filename || "Video preview"}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
+<div className="aspect-video mc-panel overflow-hidden mb-2 bg-[#1a1a1a] relative">
+    {/* Loading Placeholder */}
+    {imageLoading && !imageError && (
+        <div className="absolute inset-0 flex items-center justify-center animate-pulse bg-[var(--mc-stone)]">
+            <span className="font-pixel text-[8px] text-[var(--text-muted)]">
+                Loading...
+            </span>
+        </div>
+    )}
 
-                {/* Overlay Play Hint */}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full bg-[var(--mc-emerald)]/20 border border-[var(--mc-emerald)] flex items-center justify-center">
-                        <Play className="w-4 h-4 text-[var(--mc-emerald)] fill-[var(--mc-emerald)]" />
-                    </div>
-                </div>
+    {/* Fallback UI */}
+    {imageError ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-[var(--mc-stone)]">
+            <span className="font-pixel text-[8px] text-[var(--text-muted)]">
+                No Preview
+            </span>
+        </div>
+    ) : (
+        <img
+            src={`${apiUrl}${item.thumbnail_url || item.preview_url}`}
+            alt={item.filename || "Video preview"}
+            className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-110 ${
+                imageLoading ? "opacity-0" : "opacity-100"
+            }`}
+            onLoad={() => setImageLoading(false)}
+            onError={() => {
+                setImageLoading(false);
+                setImageError(true);
+            }}
+        />
+    )}
 
-                {/* Status Badge */}
-                <div className="absolute top-1 right-1 px-1 py-0.5 bg-black/60 rounded flex items-center gap-1">
-                    {getStatusIcon()}
-                </div>
-            </div>
+    {/* Overlay Play Hint */}
+    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full bg-[var(--mc-emerald)]/20 border border-[var(--mc-emerald)] flex items-center justify-center">
+            <Play className="w-4 h-4 text-[var(--mc-emerald)] fill-[var(--mc-emerald)]" />
+        </div>
+    </div>
+
+    {/* Status Badge */}
+    <div className="absolute top-1 right-1 px-1 py-0.5 bg-black/60 rounded flex items-center gap-1">
+        {getStatusIcon()}
+    </div>
+</div>
 
             {/* Content */}
             <div className="space-y-1">
