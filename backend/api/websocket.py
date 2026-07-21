@@ -27,7 +27,8 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
     await websocket.accept()
     logger.info(f"⛏  WebSocket connected: job {job_id}")
 
-    r = aioredis.from_url(settings.REDIS_URL)
+    # FIX: Added decode_responses=True configuration to properly parse JSON strings instead of bytes
+    r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     pubsub = r.pubsub()
     channel = f"blockforge:progress:{job_id}"
 
