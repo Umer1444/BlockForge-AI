@@ -76,16 +76,18 @@ class FrameExtractor:
         return output_path
 
     def extract_audio(self) -> Optional[Path]:
-        """Extract audio stream to preserve during rebuild."""
+        """Extract audio stream and encode it as AAC for rebuild."""
         audio_path = settings.FRAMES_DIR / self.job_id / "audio.aac"
         cmd = [
             "ffmpeg", "-y",
             "-i", str(self.video_path),
             "-vn",                 # No video
-            "-acodec", "copy",     # Copy audio without re-encoding
+            "-acodec", "aac",      # Encode audio explicitly as AAC
             str(audio_path),
         ]
+
         result = subprocess.run(cmd, capture_output=True)
+
         if result.returncode == 0 and audio_path.exists():
             logger.info(f"⛏  Audio extracted for job {self.job_id}")
             return audio_path
