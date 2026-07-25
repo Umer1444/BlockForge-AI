@@ -32,11 +32,16 @@ class FrameExtractor:
         Extract all frames as lossless PNG files.
         Returns sorted list of frame file paths.
         """
+
+        # Remove stale frames from previous extractions
+        for frame_path in self.frames_dir.glob("frame_*.png"):
+            frame_path.unlink()
+
         cmd = ["ffmpeg", "-y"]
 
         if start_time is not None:
             cmd.extend(["-ss", str(start_time)])
-        
+
         cmd.extend(["-i", str(self.video_path)])
 
         if end_time is not None:
@@ -86,6 +91,7 @@ class FrameExtractor:
             str(audio_path),
         ]
         result = subprocess.run(cmd, capture_output=True)
+
         if result.returncode == 0 and audio_path.exists():
             logger.info(f"⛏  Audio extracted for job {self.job_id}")
             return audio_path
