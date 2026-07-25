@@ -19,6 +19,17 @@ class FrameExtractor:
 
     def __init__(self, video_path: str, job_id: str):
         self.video_path = Path(video_path)
+
+        if not self.video_path.exists():
+            raise FileNotFoundError(
+                f"Video file does not exist: {self.video_path}"
+            )
+
+        if not self.video_path.is_file():
+            raise ValueError(
+                f"Video path is not a file: {self.video_path}"
+            )
+
         self.job_id = job_id
         self.frames_dir = settings.FRAMES_DIR / job_id / "original"
         self.frames_dir.mkdir(parents=True, exist_ok=True)
@@ -86,6 +97,7 @@ class FrameExtractor:
             str(audio_path),
         ]
         result = subprocess.run(cmd, capture_output=True)
+
         if result.returncode == 0 and audio_path.exists():
             logger.info(f"⛏  Audio extracted for job {self.job_id}")
             return audio_path
