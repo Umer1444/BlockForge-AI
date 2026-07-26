@@ -87,7 +87,14 @@ class FrameExtractor:
             "-q:v", "1",
             str(output_path),
         ]
+
         subprocess.run(cmd, capture_output=True, check=True)
+
+        if not output_path.exists():
+            raise RuntimeError(
+                f"Frame extraction completed but no frame was created at timestamp {timestamp}"
+            )
+
         return output_path
 
     def extract_audio(self) -> Optional[Path]:
