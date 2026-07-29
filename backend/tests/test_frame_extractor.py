@@ -1,4 +1,10 @@
+
 from unittest.mock import patch, MagicMock
+
+from unittest.mock import patch
+
+import pytest
+
 
 from core.frame_extractor import FrameExtractor
 
@@ -29,3 +35,27 @@ def test_extract_all_frames_removes_stale_frames_before_extraction(tmp_path):
 
     # Non-frame files should not be removed.
     assert unrelated_file.exists()
+  def test_extract_all_frames_rejects_end_before_start(tmp_path):
+    extractor = FrameExtractor(str(tmp_path / "video.mp4"), "test-job")
+
+    with patch("core.frame_extractor.subprocess.run") as mock_run:
+        with pytest.raises(
+            ValueError,
+            match="end_time must be greater than start_time",
+        ):
+            extractor.extract_all_frames(start_time=10, end_time=5)
+
+        mock_run.assert_not_called()
+
+
+def test_extract_all_frames_rejects_equal_start_and_end(tmp_path):
+    extractor = FrameExtractor(str(tmp_path / "video.mp4"), "test-job")
+
+    with patch("core.frame_extractor.subprocess.run") as mock_run:
+        with pytest.raises(
+            ValueError,
+            match="end_time must be greater than start_time",
+        ):
+            extractor.extract_all_frames(start_time=10, end_time=10)
+
+        mock_run.assert_not_called()
