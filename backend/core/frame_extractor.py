@@ -31,12 +31,23 @@ class FrameExtractor:
         """
         Extract all frames as lossless PNG files.
         Returns sorted list of frame file paths.
+
+        Raises:
+            ValueError: If end_time is less than or equal to start_time.
         """
+        if end_time is not None:
+            effective_start = start_time if start_time is not None else 0
+
+            if end_time <= effective_start:
+                raise ValueError(
+                    "end_time must be greater than start_time"
+                )
+
         cmd = ["ffmpeg", "-y"]
 
         if start_time is not None:
             cmd.extend(["-ss", str(start_time)])
-        
+
         cmd.extend(["-i", str(self.video_path)])
 
         if end_time is not None:
@@ -55,10 +66,14 @@ class FrameExtractor:
 
         if result.returncode != 0:
             logger.error(f"FFmpeg error: {result.stderr}")
-            raise RuntimeError(f"Frame extraction failed: {result.stderr[:500]}")
+            raise RuntimeError(
+                f"Frame extraction failed: {result.stderr[:500]}"
+            )
 
         frames = sorted(self.frames_dir.glob("frame_*.png"))
-        logger.info(f"⛏  Extracted {len(frames)} frames for job {self.job_id}")
+        logger.info(
+            f"⛏  Extracted {len(frames)} frames for job {self.job_id}"
+        )
         return frames
 
     def extract_single_frame(self, timestamp: float) -> Path:
@@ -72,7 +87,14 @@ class FrameExtractor:
             "-q:v", "1",
             str(output_path),
         ]
+
         subprocess.run(cmd, capture_output=True, check=True)
+
+        if not output_path.exists():
+            raise RuntimeError(
+                f"Frame extraction completed but no frame was created at timestamp {timestamp}"
+            )
+
         return output_path
 
     def extract_audio(self) -> Optional[Path]:
@@ -91,9 +113,9 @@ class FrameExtractor:
         if result.returncode == 0 and audio_path.exists():
             logger.info(f"⛏  Audio extracted for job {self.job_id}")
             return audio_path
-        else:
-            logger.warning(f"No audio stream found in job {self.job_id}")
-            return None
+
+        logger.warning(f"No audio stream found in job {self.job_id}")
+        return None
 
     def get_frame_count(self) -> int:
         """Count total extracted frames."""
