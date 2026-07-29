@@ -46,6 +46,12 @@ class FrameExtractor:
         Raises:
             ValueError: If end_time is less than or equal to start_time.
         """
+
+
+        # Remove stale frames from previous extractions
+        for frame_path in self.frames_dir.glob("frame_*.png"):
+            frame_path.unlink()
+
         if end_time is not None:
             effective_start = start_time if start_time is not None else 0
 
@@ -53,6 +59,7 @@ class FrameExtractor:
                 raise ValueError(
                     "end_time must be greater than start_time"
                 )
+
 
         cmd = ["ffmpeg", "-y"]
 
