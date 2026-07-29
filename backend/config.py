@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     USE_FP16: bool = True
     MAX_GPU_MEMORY_GB: float = 8.0
 
+    # Minimum free GPU memory required before using the GPU.
+    # Can be overridden via the GPU_MEMORY_THRESHOLD_GB environment variable.
+    GPU_MEMORY_THRESHOLD_GB: float = float(
+        os.getenv("GPU_MEMORY_THRESHOLD_GB", "4.0")
+    )
+
     # ── Video defaults ───────────────────────────────────
     DEFAULT_CRF: int = 18
     DEFAULT_CODEC: str = "libx264"
