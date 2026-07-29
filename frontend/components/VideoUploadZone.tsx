@@ -13,9 +13,10 @@ export default function VideoUploadZone({
     onUploadComplete,
 }: VideoUploadZoneProps) {
     const [isDragOver, setIsDragOver] = useState(false);
-    const [file, setFile] = useState<File | null>(null);
+    const [files, setFiles] = useState<File[]>([]);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [currentFileIndex, setCurrentFileIndex] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -38,67 +39,84 @@ export default function VideoUploadZone({
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         setIsDragOver(false);
-        const droppedFile = e.dataTransfer.files[0];
-        if (droppedFile && validateFile(droppedFile)) {
-            setFile(droppedFile);
+        const droppedFiles = Array.from(e.dataTransfer.files);
+        const validFiles = droppedFiles.filter(validateFile);
+        if (validFiles.length > 0) {
+            setFiles(prev => [...prev, ...validFiles]);
         }
     }, []);
 
     const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selected = e.target.files?.[0];
-        if (selected && validateFile(selected)) {
-            setFile(selected);
+        const selectedFiles = Array.from(e.target.files || []);
+        const validFiles = selectedFiles.filter(validateFile);
+        if (validFiles.length > 0) {
+            setFiles(prev => [...prev, ...validFiles]);
         }
     };
 
     const uploadFile = async () => {
-        if (!file) return;
+        if (files.length === 0) return;
 
         setUploading(true);
-        setUploadProgress(0);
         setError(null);
+        let firstResult: any = null;
 
-        try {
-            const formData = new FormData();
-            formData.append("file", file);
+        for (let i = 0; i < files.length; i++) {
+            const currentFile = files[i];
+            setCurrentFileIndex(i);
+            setUploadProgress(0);
 
-            const xhr = new XMLHttpRequest();
+            try {
+                const formData = new FormData();
+                formData.append("file", currentFile);
 
-            xhr.upload.addEventListener("progress", (e) => {
-                if (e.lengthComputable) {
-                    setUploadProgress(Math.round((e.loaded / e.total) * 100));
-                }
-            });
+                const xhr = new XMLHttpRequest();
 
-            const result = await new Promise<any>((resolve, reject) => {
-                xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        resolve(JSON.parse(xhr.responseText));
-                    } else {
-                        reject(new Error(xhr.responseText));
+                xhr.upload.addEventListener("progress", (e) => {
+                    if (e.lengthComputable) {
+                        setUploadProgress(Math.round((e.loaded / e.total) * 100));
                     }
-                };
-                xhr.onerror = () => reject(new Error("Upload failed"));
-                xhr.open("POST", `${apiUrl}/api/upload`);
-                xhr.send(formData);
-            });
+                });
 
-            onUploadComplete(result);
-        } catch (err: any) {
-            setError(err.message || "Upload failed");
-        } finally {
-            setUploading(false);
+                const result = await new Promise<any>((resolve, reject) => {
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve(JSON.parse(xhr.responseText));
+                        } else {
+                            reject(new Error(xhr.responseText));
+                        }
+                    };
+                    xhr.onerror = () => reject(new Error("Upload failed"));
+                    xhr.open("POST", `${apiUrl}/api/upload`);
+                    xhr.send(formData);
+                });
+
+                if (i === 0) {
+                    firstResult = result;
+                }
+            } catch (err: any) {
+                setError(`Upload failed for ${currentFile.name}: ${err.message}`);
+                break;
+            }
+        }
+
+        setUploading(false);
+        setFiles([]);
+        
+        // Pass the first result to the parent to make it active, the rest will be in the history
+        if (firstResult) {
+            onUploadComplete(firstResult);
         }
     };
 
     return (
         <div className="w-full h-full flex flex-col items-center justify-center p-8">
-            {!file ? (
+            {!files.length ? (
                 /* ── Drop Zone ── */
                 <div
                     className={`w-full max-w-lg border-4 border-dashed rounded p-12 text-center cursor-pointer transition-all duration-200 ${isDragOver
                             ? "border-[var(--mc-emerald)] bg-[rgba(23,221,98,0.05)]"
-                            : "border-[var(--border-pixel)] hover:border-[var(--mc-diamond)]"
+                            : "border-[var(--border-color)] hover:border-[var(--mc-emerald)]"
                         }`}
                     onDragOver={(e) => {
                         e.preventDefault();
@@ -109,33 +127,39 @@ export default function VideoUploadZone({
                     onClick={() => inputRef.current?.click()}
                 >
                     <input
-                        ref={inputRef}
                         type="file"
-                        accept="video/*"
-                        className="hidden"
+                        ref={inputRef}
                         onChange={handleSelect}
+                        className="hidden"
+                        accept={validExtensions.map((e) => `.${e}`).join(",")}
+                        multiple
                     />
-
-                    <div className="text-5xl mb-4">
-                        {isDragOver ? "📥" : "🎬"}
-                    </div>
-                    <p className="font-pixel text-xs text-[var(--text-primary)] mb-2">
-                        {isDragOver ? "DROP IT!" : "DROP VIDEO HERE"}
+                    <div className="text-4xl mb-4">📥</div>
+                    <h3 className="text-xl font-bold text-white mb-2">
+                        Upload Video(s)
+                    </h3>
+                    <p className="text-[var(--text-color)] text-sm mb-4">
+                        Drag & drop your files here, or click to browse
                     </p>
-                    <p className="font-pixel text-[8px] text-[var(--text-muted)]">
-                        or click to browse • MP4, AVI, MOV, MKV, WebM • Max 500MB
+                    <p className="text-xs text-[var(--text-color)] opacity-70">
+                        Supports {validExtensions.join(", ")} up to 500MB each
                     </p>
                 </div>
             ) : (
-                /* ── File Selected ── */
-                <div className="w-full max-w-lg mc-panel p-6 text-center space-y-4">
-                    <div className="text-4xl">📼</div>
-                    <p className="font-pixel text-xs text-[var(--text-primary)] truncate">
-                        {file.name}
-                    </p>
-                    <p className="font-pixel text-[9px] text-[var(--text-secondary)]">
-                        {(file.size / (1024 * 1024)).toFixed(1)} MB
-                    </p>
+                /* ── Uploading / Ready State ── */
+                <div className="w-full max-w-lg bg-[var(--surface-color)] border border-[var(--border-color)] p-8 rounded shadow-lg flex flex-col items-center">
+                    <div className="text-4xl mb-4 text-[var(--mc-emerald)]">🎥</div>
+                    <h3 className="text-xl font-bold text-white mb-2">
+                        {files.length} File(s) Selected
+                    </h3>
+                    <div className="w-full max-h-32 overflow-y-auto mb-6 text-sm text-[var(--text-color)]">
+                        {files.map((f, idx) => (
+                            <div key={idx} className="flex justify-between items-center bg-[var(--bg-color)] p-2 mb-1 rounded">
+                                <span className="truncate">{f.name}</span>
+                                <span>{(f.size / (1024 * 1024)).toFixed(1)} MB</span>
+                            </div>
+                        ))}
+                    </div>
 
                     {uploading && (
                         <div className="mc-xp-bar rounded-sm">
@@ -159,7 +183,7 @@ export default function VideoUploadZone({
                         <PixelButton
                             variant="stone"
                             onClick={() => {
-                                setFile(null);
+                                setFiles([]);
                                 setError(null);
                             }}
                             disabled={uploading}
