@@ -1,5 +1,6 @@
 
 
+
 import pytest
 
 from core.frame_extractor import FrameExtractor
@@ -28,6 +29,9 @@ def test_init_accepts_existing_video_file(tmp_path):
 
     assert extractor.video_path == video_file
 
+from unittest.mock import MagicMock, patch
+
+
 from unittest.mock import patch, MagicMock
 
 
@@ -38,6 +42,14 @@ import pytest
 
 from core.frame_extractor import FrameExtractor
 
+
+
+
+def test_extract_audio_encodes_as_aac(tmp_path):
+    extractor = FrameExtractor(str(tmp_path / "video.mp4"), "test-job")
+
+    mock_result = MagicMock()
+    mock_result.returncode = 0
 
 def test_extract_all_frames_removes_stale_frames_before_extraction(tmp_path):
     extractor = FrameExtractor(str(tmp_path / "video.mp4"), "test-job")
@@ -54,9 +66,22 @@ def test_extract_all_frames_removes_stale_frames_before_extraction(tmp_path):
     mock_result.returncode = 0
     mock_result.stderr = ""
 
+
     with patch(
         "core.frame_extractor.subprocess.run",
         return_value=mock_result,
+
+    ) as mock_run:
+        extractor.extract_audio()
+
+    cmd = mock_run.call_args.args[0]
+
+    assert "-acodec" in cmd
+    assert cmd[cmd.index("-acodec") + 1] == "aac"
+    assert "copy" not in cmd
+
+def test_extract_all_frames_rejects_end_before_start(tmp_path):
+
     ):
         extractor.extract_all_frames()
 
@@ -66,6 +91,7 @@ def test_extract_all_frames_removes_stale_frames_before_extraction(tmp_path):
     # Non-frame files should not be removed.
     assert unrelated_file.exists()
   def test_extract_all_frames_rejects_end_before_start(tmp_path):
+
     extractor = FrameExtractor(str(tmp_path / "video.mp4"), "test-job")
 
     with patch("core.frame_extractor.subprocess.run") as mock_run:
