@@ -81,6 +81,44 @@ class GPUManager:
             "mps_available": self.mps_available,
         }
 
+
+        if self.cuda_available:
+            try:
+                info["device_count"] = torch.cuda.device_count()
+                info["devices"] = []
+
+                for i in range(info["device_count"]):
+                    props = torch.cuda.get_device_properties(i)
+                    allocated = torch.cuda.memory_allocated(i) / (1024 ** 3)
+                    reserved = torch.cuda.memory_reserved(i) / (1024 ** 3)
+                    total = props.total_mem / (1024 ** 3)
+
+                    info["devices"].append(
+                        {
+                            "index": i,
+                            "name": props.name,
+                            "total_memory_gb": round(total, 2),
+                            "allocated_gb": round(allocated, 2),
+                            "free_gb": round(total - reserved, 2),
+                        }
+                    )
+
+            except Exception as e:
+                logger.exception(f"Failed to retrieve GPU information: {e}")
+                self.fallback_to_cpu()
+
+                return {
+                    "available": False,
+                    "device": "cpu",
+                    "device_type": "cpu",
+                    "cuda_available": False,
+                    "mps_available": self.mps_available,
+                }
+
+        elif self.mps_available:
+            info["device_name"] = "Apple Silicon GPU (MPS)"
+            # MPS doesn't expose memory info as easily as CUDA
+
         if self.cuda_available and self.device_type == "cuda":
             info["device_count"] = torch.cuda.device_count()
             info["devices"] = []
@@ -88,11 +126,24 @@ class GPUManager:
             for i in range(info["device_count"]):
                 props = torch.cuda.get_device_properties(i)
 
+
                 allocated = torch.cuda.memory_allocated(i) / (1024**3)
                 reserved = torch.cuda.memory_reserved(i) / (1024**3)
                 total = props.total_mem / (1024**3)
 
+
                 allocated = torch.cuda.memory_allocated(i) / (1024 ** 3)
+
+
+                try:
+                    free_bytes, total_bytes = torch.cuda.mem_get_info(i)
+                    free = free_bytes / (1024 ** 3)
+                    total = total_bytes / (1024 ** 3)
+                except (AttributeError, RuntimeError):
+                    reserved = torch.cuda.memory_reserved(i) / (1024 ** 3)
+                    total = props.total_mem / (1024 ** 3)
+                    free = total - reserved
+
                 reserved = torch.cuda.memory_reserved(i) / (1024 ** 3)
                 total = props.total_mem / (1024 ** 3)
 
@@ -103,7 +154,11 @@ class GPUManager:
                         "name": props.name,
                         "total_memory_gb": round(total, 2),
                         "allocated_gb": round(allocated, 2),
+
+                        "free_gb": round(free, 2),
+
                         "free_gb": round(total - reserved, 2),
+
                     }
                 )
 
@@ -142,25 +197,66 @@ class GPUManager:
             return True
 
 
+
+        try:
+            device_idx = (
+                int(self.current_device.split(":")[-1])
+                if ":" in self.current_device
+                else 0
+
+
         device_idx = (
             int(self.current_device.split(":")[-1])
             if ":" in self.current_device
             else 0
         )
 
+
+        try:
+            free_bytes, total_bytes = torch.cuda.mem_get_info(device_idx)
+            free = free_bytes / (1024 ** 3)
+            total = total_bytes / (1024 ** 3)
+        except (AttributeError, RuntimeError):
+            props = torch.cuda.get_device_properties(device_idx)
+            reserved = torch.cuda.memory_reserved(device_idx) / (1024 ** 3)
+            total = props.total_mem / (1024 ** 3)
+            free = total - reserved
+
         props = torch.cuda.get_device_properties(device_idx)
         reserved = torch.cuda.memory_reserved(device_idx) / (1024**3)
         total = props.total_mem / (1024**3)
         free = total - reserved
 
+
         if free < required_gb:
             logger.warning(
                 f"Low GPU memory: {free:.2f} GB free, "
                 f"{required_gb:.2f} GB required"
+
             )
+
+            props = torch.cuda.get_device_properties(device_idx)
+            reserved = torch.cuda.memory_reserved(device_idx) / (1024 ** 3)
+            total = props.total_mem / (1024 ** 3)
+            free = total - reserved
+
+            if free < required_gb:
+                logger.warning(
+                    f"Low GPU memory: {free:.2f} GB free, "
+                    f"{required_gb:.2f} GB required"
+                )
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.exception(f"Failed to check GPU memory: {e}")
+            self.fallback_to_cpu()
             return False
 
+
         return True
+
 
     def fallback_to_cpu(self):
         """Gracefully fallback to CPU when GPU is unavailable."""
@@ -207,12 +303,27 @@ class GPUManager:
 
     def clear_cache(self):
         """Clear GPU cache."""
+
+        try:
+            if self.cuda_available:
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+            elif self.mps_available:
+                # MPS doesn't have an explicit clear_cache
+                pass
+
+            logger.debug(f"⛏  {self.device_type.upper()} cache cleared")
+
+        except Exception as e:
+            logger.exception(f"Failed to clear GPU cache: {e}")
+            self.fallback_to_cpu()
+
         if self.cuda_available and self.device_type == "cuda":
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
         elif self.mps_available:
 
-            # MPS doesn't have an explicit clear_cache yet.
+
             pass
 
         logger.debug(f"⛏  {self.device_type.upper()} cache cleared")
