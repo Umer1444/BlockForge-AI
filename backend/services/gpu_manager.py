@@ -126,6 +126,12 @@ class GPUManager:
             for i in range(info["device_count"]):
                 props = torch.cuda.get_device_properties(i)
 
+
+                allocated = torch.cuda.memory_allocated(i) / (1024**3)
+                reserved = torch.cuda.memory_reserved(i) / (1024**3)
+                total = props.total_mem / (1024**3)
+
+
                 allocated = torch.cuda.memory_allocated(i) / (1024 ** 3)
 
 
@@ -170,10 +176,26 @@ class GPUManager:
             return "mps"
         return "cpu"
 
+
+    def check_memory(self, required_gb: float | None = None) -> bool:
+        """
+        Check if enough GPU memory is available.
+
+        If required_gb is not provided, use the configured value from settings.
+        """
+        if not self.cuda_available:
+            # For MPS/CPU we don't have a reliable memory check yet
+            return True
+
+        if required_gb is None:
+            required_gb = settings.GPU_MEMORY_THRESHOLD_GB
+
+
     def check_memory(self, required_gb: float = 4.0) -> bool:
         """Check if enough GPU memory is available."""
         if not self.cuda_available or self.device_type != "cuda":
             return True
+
 
 
         try:
@@ -181,6 +203,7 @@ class GPUManager:
                 int(self.current_device.split(":")[-1])
                 if ":" in self.current_device
                 else 0
+
 
         device_idx = (
             int(self.current_device.split(":")[-1])
@@ -200,8 +223,8 @@ class GPUManager:
             free = total - reserved
 
         props = torch.cuda.get_device_properties(device_idx)
-        reserved = torch.cuda.memory_reserved(device_idx) / (1024 ** 3)
-        total = props.total_mem / (1024 ** 3)
+        reserved = torch.cuda.memory_reserved(device_idx) / (1024**3)
+        total = props.total_mem / (1024**3)
         free = total - reserved
 
 
@@ -244,9 +267,13 @@ class GPUManager:
         self.current_device = "cpu"
         self.device_type = "cpu"
 
-    def try_gpu_or_fallback(self, required_gb: float = 4.0) -> str:
+    def try_gpu_or_fallback(self, required_gb: float | None = None) -> str:
         """
         Attempt to use GPU if available, otherwise fallback to CPU.
+
+
+        If required_gb is not provided, the configured threshold is used.
+
 
         Returns:
             Device string to use.
@@ -254,10 +281,20 @@ class GPUManager:
         if self.device_type == "cpu":
             return "cpu"
 
+
+        if required_gb is None:
+            required_gb = settings.GPU_MEMORY_THRESHOLD_GB
+
+        if not self.check_memory(required_gb):
+            logger.warning(
+                f"Insufficient GPU memory "
+                f"({required_gb:.2f} GB required), falling back to CPU"
+
         if not self.check_memory(required_gb):
             logger.warning(
                 f"Insufficient GPU memory ({required_gb}GB required), "
                 "falling back to CPU"
+
             )
             self.fallback_to_cpu()
             return "cpu"
@@ -286,7 +323,7 @@ class GPUManager:
             torch.cuda.synchronize()
         elif self.mps_available:
 
-            # MPS doesn't have an explicit clear_cache
+
             pass
 
         logger.debug(f"⛏  {self.device_type.upper()} cache cleared")
