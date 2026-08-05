@@ -176,6 +176,21 @@ class GPUManager:
             return "mps"
         return "cpu"
 
+
+    def check_memory(self, required_gb: float | None = None) -> bool:
+        """
+        Check if enough GPU memory is available.
+
+        If required_gb is not provided, use the configured value from settings.
+        """
+        if not self.cuda_available:
+            # For MPS/CPU we don't have a reliable memory check yet
+            return True
+
+        if required_gb is None:
+            required_gb = settings.GPU_MEMORY_THRESHOLD_GB
+
+
     def check_memory(self, required_gb: float = 4.0) -> bool:
         """Check if enough GPU memory is available."""
 
@@ -186,11 +201,13 @@ class GPUManager:
             return True
 
 
+
         try:
             device_idx = (
                 int(self.current_device.split(":")[-1])
                 if ":" in self.current_device
                 else 0
+
 
         device_idx = (
             int(self.current_device.split(":")[-1])
@@ -268,9 +285,13 @@ class GPUManager:
         self.current_device = "cpu"
         self.device_type = "cpu"
 
-    def try_gpu_or_fallback(self, required_gb: float = 4.0) -> str:
+    def try_gpu_or_fallback(self, required_gb: float | None = None) -> str:
         """
         Attempt to use GPU if available, otherwise fallback to CPU.
+
+
+        If required_gb is not provided, the configured threshold is used.
+
 
         Returns:
             Device string to use.
@@ -280,6 +301,15 @@ class GPUManager:
                 "Backend: CPU | Active Device: cpu"
             )
             return "cpu"
+
+
+        if required_gb is None:
+            required_gb = settings.GPU_MEMORY_THRESHOLD_GB
+
+        if not self.check_memory(required_gb):
+            logger.warning(
+                f"Insufficient GPU memory "
+                f"({required_gb:.2f} GB required), falling back to CPU"
 
         if not self.check_memory(required_gb):
 
@@ -291,6 +321,7 @@ class GPUManager:
             logger.warning(
                 f"Insufficient GPU memory ({required_gb}GB required), "
                 "falling back to CPU"
+
             )
             self.fallback_to_cpu()
 
@@ -326,6 +357,7 @@ class GPUManager:
         elif self.mps_available:
 
 
+
             # MPS doesn't have an explicit clear_cache.
             pass
 
@@ -335,6 +367,7 @@ class GPUManager:
         )
 
             # MPS doesn't have an explicit clear_cache
+
             pass
 
         logger.debug(f"⛏  {self.device_type.upper()} cache cleared")
