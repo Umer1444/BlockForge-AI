@@ -193,7 +193,11 @@ class GPUManager:
 
     def check_memory(self, required_gb: float = 4.0) -> bool:
         """Check if enough GPU memory is available."""
+
+        if not self.cuda_available:
+
         if not self.cuda_available or self.device_type != "cuda":
+
             return True
 
 
@@ -230,6 +234,10 @@ class GPUManager:
 
         if free < required_gb:
             logger.warning(
+
+                f"Low GPU memory on {self.current_device}: "
+                f"{free:.2f} GB free, {required_gb:.2f} GB required"
+
                 f"Low GPU memory: {free:.2f} GB free, "
                 f"{required_gb:.2f} GB required"
 
@@ -258,12 +266,22 @@ class GPUManager:
         return True
 
 
+    def fallback_to_cpu(self, reason: str = "Unknown reason"):
+
+
     def fallback_to_cpu(self):
+
         """Gracefully fallback to CPU when GPU is unavailable."""
         if self.current_device == "cpu":
             return
 
-        logger.warning(f"Falling back from {self.device_type} to CPU")
+        logger.warning(
+            f"Falling back to CPU | "
+            f"Previous device: {self.current_device} | "
+            f"Backend: {self.device_type.upper()} | "
+            f"Reason: {reason}"
+        )
+
         self.current_device = "cpu"
         self.device_type = "cpu"
 
@@ -279,6 +297,9 @@ class GPUManager:
             Device string to use.
         """
         if self.device_type == "cpu":
+            logger.info(
+                "Backend: CPU | Active Device: cpu"
+            )
             return "cpu"
 
 
@@ -291,13 +312,25 @@ class GPUManager:
                 f"({required_gb:.2f} GB required), falling back to CPU"
 
         if not self.check_memory(required_gb):
+
+            self.fallback_to_cpu(
+                reason=f"Insufficient GPU memory "
+                f"({required_gb:.2f} GB required)"
+            )
+
             logger.warning(
                 f"Insufficient GPU memory ({required_gb}GB required), "
                 "falling back to CPU"
 
             )
             self.fallback_to_cpu()
+
             return "cpu"
+
+        logger.info(
+            f"Backend: {self.device_type.upper()} | "
+            f"Active Device: {self.current_device}"
+        )
 
         return self.current_device
 
@@ -324,9 +357,21 @@ class GPUManager:
         elif self.mps_available:
 
 
+
+            # MPS doesn't have an explicit clear_cache.
+            pass
+
+        logger.debug(
+            f"{self.device_type.upper()} cache cleared "
+            f"on device {self.current_device}"
+        )
+
+            # MPS doesn't have an explicit clear_cache
+
             pass
 
         logger.debug(f"⛏  {self.device_type.upper()} cache cleared")
+
 
             pass
 
@@ -337,18 +382,59 @@ class GPUManager:
         """Log current GPU status."""
         info = self.get_info()
 
+
+        logger.info(
+            f"Backend: {self.device_type.upper()} | "
+            f"Active Device: {self.current_device}"
+        )
+
+        if not info["available"]:
+            logger.info(
+                "Reason: CUDA/MPS unavailable. "
+                "Running on CPU."
+            )
+            return
+
+        if info["cuda_available"]:
+            logger.info(
+                f"CUDA devices detected: {info['device_count']}"
+            )
+
+
         if not info["available"]:
             logger.info("⛏ No GPU available, using CPU")
             return
 
         if info["cuda_available"] and self.device_type == "cuda":
+
             for dev in info["devices"]:
+                active = (
+                    " (ACTIVE)"
+                    if self.current_device == f"cuda:{dev['index']}"
+                    else ""
+                )
+
                 logger.info(
+
+                    f"GPU {dev['index']}: {dev['name']}{active} | "
+                    f"{dev['free_gb']:.1f}/"
+                    f"{dev['total_memory_gb']:.1f} GB free"
+
                     f"⛏ GPU {dev['index']}: {dev['name']} | "
                     f"{dev['free_gb']:.1f}/{dev['total_memory_gb']:.1f} GB free"
+
                 )
+
         elif info["mps_available"]:
+
+            logger.info(
+                "Backend: MPS | "
+                "Active Device: mps | "
+                "Apple Silicon GPU detected."
+            )
+
             logger.info("⛏ Using Apple Silicon GPU (MPS)")
+
 
 
 # Singleton
