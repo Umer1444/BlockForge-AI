@@ -73,7 +73,10 @@ class FrameExtractor:
             cmd.extend(["-t", str(duration)])
 
         cmd.extend([
-            "-fps_mode", "passthrough",
+            "-vsync", "passthrough",
+            # -vsync (FFmpeg < 6) / -fps_mode (FFmpeg >= 6) both use
+            # "passthrough"; -vsync keeps compatibility with Ubuntu 22.04's
+            # FFmpeg 4.4.x shipped in docker/backend.Dockerfile.
             "-q:v", "1",            # Highest quality
             "-start_number", "0",
             str(self.frames_dir / "frame_%06d.png"),
