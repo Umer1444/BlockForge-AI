@@ -6,8 +6,9 @@ services:
   # ── Redis ──────────────────────────────────
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # Intentionally no host port mapping: Redis must only be reachable on the
+    # internal Docker network (backend/worker connect via the "redis" service
+    # name). Exposing 6379 on the host allowed unauthenticated remote access.
     volumes:
       - redis_data:/data
     healthcheck:
