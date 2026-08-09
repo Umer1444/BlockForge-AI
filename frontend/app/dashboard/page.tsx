@@ -11,6 +11,8 @@ const BeforeAfterSlider = dynamic(() => import("../../components/BeforeAfterSlid
 import PixelButton from "../../components/PixelButton";
 import HistoryCard, { HistoryItem } from "../../components/HistoryCard";
 import VideoPreviewModal from "../../components/VideoPreviewModal";
+import ConfirmModal from "../../components/ConfirmModal";
+import Toast, { ToastType } from "../../components/Toast";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -41,6 +43,9 @@ export default function Dashboard() {
     const [isLoadingHistory, setIsLoadingHistory] = useState(true);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [previewItem, setPreviewItem] = useState<HistoryItem | null>(null);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [toastType, setToastType] = useState<ToastType>("error");
+    const [isClearModalOpen, setIsClearModalOpen] = useState(false);
 
     const [processOptions, setProcessOptions] = useState({
         useEnhancement: false,
@@ -217,10 +222,14 @@ export default function Dashboard() {
         }
     }, [resetJob]);
 
-    // ── Delete Job (Backend + Registry) ──
+    // ── Delete Job (Backend + Registry with Optimistic Update & Rollback) ──
     const handleDeleteJob = useCallback(async (e: React.MouseEvent, item: HistoryItem) => {
         e.stopPropagation();
-        if (!confirm(`Permanently delete ${item.filename || 'this forge'} from the registry?`)) return;
+
+        const previousHistory = [...history];
+
+        // Optimistically remove item from local state UI
+        setHistory((prev) => prev.filter((i) => i.job_id !== item.job_id));
 
         try {
             const res = await fetch(`${API_URL}/api/jobs/${item.job_id}`, { method: "DELETE" });
@@ -229,14 +238,20 @@ export default function Dashboard() {
                 if (metadata?.job_id === item.job_id) {
                     resetJob();
                 }
-                fetchHistory();
             } else {
-                console.error("Failed to delete job");
+                // Rollback state and show error toast
+                setHistory(previousHistory);
+                setToastType("error");
+                setToastMessage(`Failed to delete "${item.filename || 'forge'}". Restored to registry.`);
             }
         } catch (err) {
             console.error("Error deleting job:", err);
+            // Rollback state and show error toast
+            setHistory(previousHistory);
+            setToastType("error");
+            setToastMessage(`Network error: Failed to delete "${item.filename || 'forge'}". Restored to registry.`);
         }
-    }, [metadata, fetchHistory]);
+    }, [history, metadata]);
 
     // ── Cancel Processing ──
     const handleCancelProcessing = useCallback(async () => {
@@ -257,17 +272,25 @@ export default function Dashboard() {
         }
     }, [metadata, fetchHistory]);
 
-    // ── Clear History (Frontend Only) ──
-    const clearHistory = () => {
-        if (!confirm("This will clear your local history view only. Backend files will remain untouched. Proceed?")) return;
+    // ── Clear History (With Confirmation Modal) ──
+    const handleClearHistoryClick = () => {
+        if (history.length === 0) return;
+        setIsClearModalOpen(true);
+    };
 
-        const allJobIdsInHistory = history.map(item => item.job_id);
+    const confirmClearHistory = () => {
+        const allJobIdsInHistory = history.map((item) => item.job_id);
         const newClearedSet = new Set([...Array.from(clearedJobs), ...allJobIdsInHistory]);
 
         setClearedJobs(newClearedSet);
-        localStorage.setItem("blockforge_cleared_jobs", JSON.stringify(Array.from(newClearedSet)));
+        try {
+            localStorage.setItem("blockforge_cleared_jobs", JSON.stringify(Array.from(newClearedSet)));
+        } catch (e) {
+            console.error("Failed to save cleared jobs to localStorage", e);
+        }
 
         setHistory([]);
+        setIsClearModalOpen(false);
     };
 
     // Cleanup WebSocket
@@ -319,9 +342,10 @@ export default function Dashboard() {
                         <div className="mc-panel-header flex justify-between items-center px-2">
                             <h2 className="font-pixel text-[10px] text-white">📜 REGISTRY</h2>
                             <button
-                                onClick={clearHistory}
-                                className="font-pixel text-[8px] text-[var(--mc-redstone)] hover:text-white transition-colors"
+                                onClick={handleClearHistoryClick}
+                                className="font-pixel text-[8px] text-[var(--mc-redstone)] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                 title="Clear all history"
+                                disabled={history.length === 0}
                             >
                                 [PRUNE]
                             </button>
@@ -668,6 +692,24 @@ export default function Dashboard() {
                     }}
                 />
             )}
+
+            {/* ── Confirmation Modal for Clearing History ── */}
+            <ConfirmModal
+                isOpen={isClearModalOpen}
+                title="PRUNE FORGE REGISTRY"
+                message="This will clear your local history view. Backend files will remain untouched. Are you sure you want to proceed?"
+                confirmText="CONFIRM PRUNE"
+                cancelText="CANCEL"
+                onConfirm={confirmClearHistory}
+                onCancel={() => setIsClearModalOpen(false)}
+            />
+
+            {/* ── Error / Feedback Toast Notification ── */}
+            <Toast
+                message={toastMessage}
+                type={toastType}
+                onClose={() => setToastMessage(null)}
+            />
         </div>
     );
 }
