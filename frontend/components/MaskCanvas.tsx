@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect, useCallback } from "react";
+import PixelButton from "./PixelButton";
 
 interface MaskCanvasProps {
     imageUrl: string;
@@ -22,6 +23,7 @@ export default function MaskCanvas({
     const [brushSize, setBrushSize] = useState(30);
     const [tool, setTool] = useState<"brush" | "eraser">("brush");
     const [bgLoaded, setBgLoaded] = useState(false);
+    const [history, setHistory] = useState<ImageData[]>([]);
 
     // Display dimensions (fit within container)
     const maxW = 900;
@@ -29,6 +31,11 @@ export default function MaskCanvas({
     const scale = Math.min(maxW / width, maxH / height, 1);
     const displayW = Math.round(width * scale);
     const displayH = Math.round(height * scale);
+
+    // Reset history when image or canvas dimensions change
+    useEffect(() => {
+        setHistory([]);
+    }, [imageUrl, displayW, displayH]);
 
     // Load background image
     useEffect(() => {
@@ -58,6 +65,36 @@ export default function MaskCanvas({
         ctx.clearRect(0, 0, displayW, displayH);
     }, [displayW, displayH]);
 
+    const saveStateToHistory = useCallback(() => {
+        const maskCanvas = maskCanvasRef.current;
+        if (!maskCanvas) return;
+        const ctx = maskCanvas.getContext("2d");
+        if (!ctx || typeof ctx.getImageData !== "function") return;
+        try {
+            const imageData = ctx.getImageData(0, 0, displayW, displayH);
+            setHistory((prev) => [...prev.slice(-9), imageData]);
+        } catch {
+            // Ignore canvas context errors in headless test environments
+        }
+    }, [displayW, displayH]);
+
+    const handleUndo = useCallback(() => {
+        if (history.length === 0) return;
+        const maskCanvas = maskCanvasRef.current;
+        if (!maskCanvas) return;
+        const ctx = maskCanvas.getContext("2d");
+        const lastState = history[history.length - 1];
+
+        if (ctx && lastState && typeof ctx.putImageData === "function") {
+            try {
+                ctx.putImageData(lastState, 0, 0);
+            } catch {
+                // Ignore canvas context errors in headless test environments
+            }
+        }
+        setHistory((prev) => prev.slice(0, -1));
+    }, [history]);
+
     const getPos = (e: React.MouseEvent) => {
         const rect = maskCanvasRef.current?.getBoundingClientRect();
         if (!rect) return { x: 0, y: 0 };
@@ -83,6 +120,7 @@ export default function MaskCanvas({
     );
 
     const handleMouseDown = (e: React.MouseEvent) => {
+        saveStateToHistory();
         setIsDrawing(true);
         const { x, y } = getPos(e);
         draw(x, y);
@@ -96,10 +134,58 @@ export default function MaskCanvas({
 
     const handleMouseUp = () => setIsDrawing(false);
 
-    const clearMask = () => {
+    const clearMask = useCallback(() => {
+        saveStateToHistory();
         const ctx = maskCanvasRef.current?.getContext("2d");
         if (ctx) ctx.clearRect(0, 0, displayW, displayH);
-    };
+    }, [displayW, displayH, saveStateToHistory]);
+
+    // Keyboard Shortcuts Listener
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement | null;
+            if (
+                target &&
+                (target.tagName === "TEXTAREA" ||
+                    (target.tagName === "INPUT" && (target as HTMLInputElement).type !== "range") ||
+                    target.isContentEditable)
+            ) {
+                return;
+            }
+
+            if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
+                e.preventDefault();
+                handleUndo();
+                return;
+            }
+
+            if (e.ctrlKey || e.metaKey || e.altKey) {
+                return;
+            }
+
+            if (e.key === "b" || e.key === "B") {
+                e.preventDefault();
+                setTool("brush");
+            } else if (e.key === "e" || e.key === "E") {
+                e.preventDefault();
+                setTool("eraser");
+            } else if (e.key === "[") {
+                e.preventDefault();
+                setBrushSize((prev) => Math.max(5, prev - 5));
+            } else if (e.key === "]") {
+                e.preventDefault();
+                setBrushSize((prev) => Math.min(100, prev + 5));
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                clearMask();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [handleUndo, clearMask]);
 
     const saveMask = () => {
         const maskCanvas = maskCanvasRef.current;
@@ -132,21 +218,31 @@ export default function MaskCanvas({
     return (
         <div className="flex flex-col items-center gap-4 p-4 w-full">
             {/* Toolbar */}
-            <div className="flex items-center gap-3 flex-wrap">
-                <button
+            <div
+                role="toolbar"
+                aria-label="Canvas toolbar"
+                className="flex items-center gap-3 flex-wrap"
+            >
+                <PixelButton
+                    variant={tool === "brush" ? "grass" : "stone"}
+                    size="sm"
                     onClick={() => setTool("brush")}
-                    className={`mc-btn ${tool === "brush" ? "mc-btn-grass" : "mc-btn-stone"
-                        } text-[9px] px-3 py-2`}
+                    aria-label="Brush tool"
+                    aria-pressed={tool === "brush"}
+                    title="Switch to Brush tool (B)"
                 >
                     🖌 Brush
-                </button>
-                <button
+                </PixelButton>
+                <PixelButton
+                    variant={tool === "eraser" ? "redstone" : "stone"}
+                    size="sm"
                     onClick={() => setTool("eraser")}
-                    className={`mc-btn ${tool === "eraser" ? "mc-btn-redstone" : "mc-btn-stone"
-                        } text-[9px] px-3 py-2`}
+                    aria-label="Eraser tool"
+                    aria-pressed={tool === "eraser"}
+                    title="Switch to Eraser tool (E)"
                 >
                     🧽 Eraser
-                </button>
+                </PixelButton>
 
                 <div className="flex items-center gap-2 ml-4">
                     <span className="font-pixel text-[8px] text-[var(--text-secondary)]">
@@ -159,24 +255,46 @@ export default function MaskCanvas({
                         value={brushSize}
                         onChange={(e) => setBrushSize(parseInt(e.target.value))}
                         className="w-24 accent-[var(--mc-emerald)]"
+                        aria-label="Brush size"
+                        aria-valuenow={brushSize}
+                        aria-valuemin={5}
+                        aria-valuemax={100}
+                        title="Adjust brush size ([ / ])"
                     />
                     <span className="font-pixel text-[8px] text-[var(--text-primary)]">
                         {brushSize}px
                     </span>
                 </div>
 
-                <button
+                <PixelButton
+                    variant="stone"
+                    size="sm"
+                    onClick={handleUndo}
+                    disabled={history.length === 0}
+                    aria-label="Undo last stroke"
+                    title="Undo last mask stroke (Ctrl+Z / Cmd+Z)"
+                    className="ml-4"
+                >
+                    ↩ Undo
+                </PixelButton>
+                <PixelButton
+                    variant="stone"
+                    size="sm"
                     onClick={clearMask}
-                    className="mc-btn mc-btn-stone text-[9px] px-3 py-2 ml-4"
+                    aria-label="Clear mask"
+                    title="Clear current mask canvas (Esc)"
                 >
                     🗑 Clear
-                </button>
-                <button
+                </PixelButton>
+                <PixelButton
+                    variant="diamond"
+                    size="sm"
                     onClick={saveMask}
-                    className="mc-btn mc-btn-diamond text-[9px] px-3 py-2"
+                    aria-label="Save mask"
+                    title="Save mask"
                 >
                     ✅ Save Mask
-                </button>
+                </PixelButton>
             </div>
 
             {/* Canvas Area */}
@@ -197,6 +315,8 @@ export default function MaskCanvas({
                     ref={maskCanvasRef}
                     width={displayW}
                     height={displayH}
+                    role="img"
+                    aria-label="Inpainting mask drawing canvas"
                     className="absolute top-0 left-0 cursor-crosshair"
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
@@ -205,8 +325,11 @@ export default function MaskCanvas({
                 />
             </div>
 
-            <p className="font-pixel text-[8px] text-[var(--text-muted)]">
+            <p className="font-pixel text-[8px] text-[var(--text-muted)] text-center">
                 Paint over the area to remove, then click Save Mask
+            </p>
+            <p className="font-pixel text-[8px] text-[var(--text-secondary)] text-center opacity-80">
+                Shortcuts: <kbd className="px-1 py-0.5 bg-[var(--bg-pixel)] rounded border border-[var(--border-pixel)]">B</kbd> Brush | <kbd className="px-1 py-0.5 bg-[var(--bg-pixel)] rounded border border-[var(--border-pixel)]">E</kbd> Eraser | <kbd className="px-1 py-0.5 bg-[var(--bg-pixel)] rounded border border-[var(--border-pixel)]">[</kbd> / <kbd className="px-1 py-0.5 bg-[var(--bg-pixel)] rounded border border-[var(--border-pixel)]">]</kbd> Size (-/+ 5px) | <kbd className="px-1 py-0.5 bg-[var(--bg-pixel)] rounded border border-[var(--border-pixel)]">Ctrl+Z</kbd> Undo | <kbd className="px-1 py-0.5 bg-[var(--bg-pixel)] rounded border border-[var(--border-pixel)]">Esc</kbd> Clear
             </p>
         </div>
     );
