@@ -1,19 +1,9 @@
 "use client";
 
-
-
 import React, { useState } from "react";
-
-import { formatDate, formatFileSize } from "../utils/formatters";
-
-
+import { Download, Play, Trash2 } from "lucide-react";
+import { formatFileSize, formatDate } from "../utils/formatters";
 import { STATUS_CONFIG, DEFAULT_STATUS } from "../utils/statusConfig";
-
-import React from "react";
-
-import { formatFileSize, formatDate } from "@/utils/formatters";
-
-import { Download, Play, CheckCircle2, Clock, AlertCircle, Trash2 } from "lucide-react";
 
 export interface HistoryItem {
     id: string;
@@ -34,8 +24,6 @@ export interface HistoryItem {
     duration?: number;
     file_size?: number;
 }
-const formattedSize = formatFileSize(item.file_size);
-const formattedDate = formatDate(item.created_at);
 
 interface HistoryCardProps {
     item: HistoryItem;
@@ -46,169 +34,117 @@ interface HistoryCardProps {
     apiUrl: string;
 }
 
-const imageSrc =
-    imageError
-        ? "/images/fallback-thumbnail.png"
-        : `${apiUrl}${item.thumbnail_url || item.preview_url}`;
+const HistoryCard: React.FC<HistoryCardProps> = ({
+    item,
+    onClick,
+    onDownload,
+    onDelete,
+    isActive,
+    apiUrl,
+}) => {
+    const [imageLoading, setImageLoading] = useState(true);
+    const [imageError, setImageError] = useState(false);
 
-const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDownload, onDelete, isActive, apiUrl }) => {
-    const formattedSize = item.file_size
-        ? (item.file_size / (1024 * 1024)).toFixed(1) + " MB"
-        : "Unknown size";
-const [imageLoading, setImageLoading] = useState(true);
-const [imageError, setImageError] = useState(false);
+    const formattedSize = formatFileSize(item.file_size);
+    const formattedDate = formatDate(item.created_at);
 
-const imageSrc =
-    imageError
-        ? "/images/fallback-thumbnail.png"
-        : `${apiUrl}${item.thumbnail_url || item.preview_url}`;
-
-    const formattedDate = new Date(item.created_at * 1000).toLocaleDateString();
-
-    
-
-
-  const getStatusIcon = () => {
-    switch (item.state.toLowerCase()) {
-        case "completed":
-            return <CheckCircle2 aria-hidden="true" className="w-3 h-3 text-[var(--mc-emerald)]" />;
-        case "processing":
-            return <Clock aria-hidden="true" className="w-3 h-3 text-[var(--mc-gold)] animate-pulse" />;
-        case "failed":
-            return <AlertCircle aria-hidden="true" className="w-3 h-3 text-[var(--mc-redstone)]" />;
-        default:
-            return <Clock aria-hidden="true" className="w-3 h-3 text-[var(--text-muted)]" />;
-    }
-};
-
-
-   const status =
-    STATUS_CONFIG[item.state.toLowerCase()] ?? DEFAULT_STATUS;
-
-const StatusIcon = status.icon;
-
+    const statusKey = item.state ? item.state.toLowerCase() : "";
+    const status = STATUS_CONFIG[statusKey] ?? DEFAULT_STATUS;
+    const StatusIcon = status.icon;
 
     const getOrientationBadge = () => {
         if (!item.orientation) return null;
         const colors: Record<string, string> = {
             landscape: "bg-blue-500/20 text-blue-400 border-blue-500/50",
             portrait: "bg-purple-500/20 text-purple-400 border-purple-500/50",
-            square: "bg-orange-500/20 text-orange-400 border-orange-500/50"
+            square: "bg-orange-500/20 text-orange-400 border-orange-500/50",
         };
         return (
-            <span className={`px-1.5 py-0.5 rounded border text-[6px] uppercase font-pixel ${colors[item.orientation] || ""}`}>
+            <span
+                className={`px-1.5 py-0.5 rounded border text-[6px] uppercase font-pixel ${
+                    colors[item.orientation] || ""
+                }`}
+            >
                 {item.orientation}
             </span>
         );
     };
 
+    const imagePath = item.thumbnail_url || item.preview_url || "";
+    const imageSrc = imageError
+        ? "/images/fallback-thumbnail.png"
+        : `${apiUrl}${imagePath}`;
+
     return (
         <div
-    role="button"
-    tabIndex={0}
-    onClick={() => onClick(item)}
-    onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onClick(item);
-        }
-    }}
-    aria-label={`Open ${item.filename || "video preview"}`}
-    className={`group relative mc-panel p-2 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_0_15px_rgba(0,255,0,0.1)]
-        focus:outline-none
-        focus-visible:ring-2
-        focus-visible:ring-[var(--mc-emerald)]
-        focus-visible:ring-offset-2
-        focus-visible:ring-offset-[#1a1a1a]
-        ${
-            isActive
-                ? "border-[var(--mc-emerald)] shadow-[0_0_10px_rgba(0,255,0,0.2)]"
-                : "border-[var(--border-pixel)]"
-        }`}
->
-            {/* Thumbnail Preview */}
-
-<div className="aspect-video mc-panel overflow-hidden mb-2 bg-[#1a1a1a] relative">
-    {/* Loading Placeholder */}
-    {imageLoading && !imageError && (
-        <div className="absolute inset-0 flex items-center justify-center animate-pulse bg-[var(--mc-stone)]">
-            <span className="font-pixel text-[8px] text-[var(--text-muted)]">
-                Loading...
-            </span>
-        </div>
-    )}
-
-
-    {/* Fallback UI */}
-    {imageError ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-[var(--mc-stone)]">
-            <span className="font-pixel text-[8px] text-[var(--text-muted)]">
-                No Preview
-            </span>
-        </div>
-    ) : (
-        <img
-            src={`${apiUrl}${item.thumbnail_url || item.preview_url}`}
-            alt={item.filename || "Video preview"}
-            className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-110 ${
-                imageLoading ? "opacity-0" : "opacity-100"
-            }`}
-            onLoad={() => setImageLoading(false)}
-            onError={() => {
-                setImageLoading(false);
-                setImageError(true);
+            role="button"
+            tabIndex={0}
+            onClick={() => onClick(item)}
+            onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onClick(item);
+                }
             }}
-        />
-    )}
-
-    {/* Overlay Play Hint */}
-    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full bg-[var(--mc-emerald)]/20 border border-[var(--mc-emerald)] flex items-center justify-center">
-            <Play className="w-4 h-4 text-[var(--mc-emerald)] fill-[var(--mc-emerald)]" />
-        </div>
-    </div>
-
-    {/* Status Badge */}
-    <div className="absolute top-1 right-1 px-1 py-0.5 bg-black/60 rounded flex items-center gap-1">
-        {getStatusIcon()}
-    </div>
-</div>
-
+            aria-label={`Open ${item.filename || "video preview"}`}
+            className={`group relative mc-panel p-2 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_0_15px_rgba(0,255,0,0.1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mc-emerald)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${
+                isActive
+                    ? "border-[var(--mc-emerald)] shadow-[0_0_10px_rgba(0,255,0,0.2)]"
+                    : "border-[var(--border-pixel)]"
+            }`}
+        >
+            {/* Thumbnail Preview */}
             <div className="aspect-video mc-panel overflow-hidden mb-2 bg-[#1a1a1a] relative">
-                <img
-    src={`${apiUrl}${item.thumbnail_url || item.preview_url}`}
-    alt={`${item.filename || "Video"} thumbnail`}
-    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-/>
+                {/* Loading Placeholder */}
+                {imageLoading && !imageError && (
+                    <div className="absolute inset-0 flex items-center justify-center animate-pulse bg-[var(--mc-stone)]">
+                        <span className="font-pixel text-[8px] text-[var(--text-muted)]">
+                            Loading...
+                        </span>
+                    </div>
+                )}
+
+                {/* Fallback UI */}
+                {imageError ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-[var(--mc-stone)]">
+                        <span className="font-pixel text-[8px] text-[var(--text-muted)]">
+                            No Preview
+                        </span>
+                    </div>
+                ) : (
+                    <img
+                        src={imageSrc}
+                        alt={item.filename || "Video preview"}
+                        className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-110 ${
+                            imageLoading ? "opacity-0" : "opacity-100"
+                        }`}
+                        onLoad={() => setImageLoading(false)}
+                        onError={() => {
+                            setImageLoading(false);
+                            setImageError(true);
+                        }}
+                    />
+                )}
 
                 {/* Overlay Play Hint */}
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <div className="w-8 h-8 rounded-full bg-[var(--mc-emerald)]/20 border border-[var(--mc-emerald)] flex items-center justify-center">
-                        <Play
-    aria-hidden="true"
-    className="w-4 h-4 text-[var(--mc-emerald)] fill-[var(--mc-emerald)]"
-/>
+                        <Play className="w-4 h-4 text-[var(--mc-emerald)] fill-[var(--mc-emerald)]" />
                     </div>
                 </div>
 
-
                 {/* Status Badge */}
-               <div
-    className="absolute top-1 right-1 px-1 py-0.5 bg-black/60 rounded flex items-center gap-1"
-    role="status"
-    aria-label={`Status: ${item.state}`}
->
-    {getStatusIcon()}
-</div>
-
-                <div className="absolute top-1 right-1 px-1 py-0.5 bg-black/60 rounded flex items-center gap-1">
+                <div
+                    className="absolute top-1 right-1 px-1 py-0.5 bg-black/60 rounded flex items-center gap-1"
+                    role="status"
+                    aria-label={`Status: ${item.state}`}
+                >
                     <StatusIcon
-    aria-hidden="true"
-    className={`w-3 h-3 ${status.className}`}
-/>
+                        aria-hidden="true"
+                        className={`w-3 h-3 ${status.className}`}
+                    />
                 </div>
             </div>
-
 
             {/* Content */}
             <div className="space-y-1">
@@ -236,35 +172,35 @@ const StatusIcon = status.icon;
                     <div className="flex gap-1">
                         {onDelete && (
                             <button
-    onClick={(e) => {
-        e.stopPropagation();
-        onDelete?.(e, item);
-    }}
-    className="p-1.5 rounded mc-panel bg-[var(--mc-stone)] hover:bg-[var(--mc-redstone)] transition-colors group/del"
-    title="Delete from Server"
-    aria-label={`Delete ${item.filename || "video"} from server`}
->
-    <Trash2
-        aria-hidden="true"
-        className="w-3 h-3 text-white group-hover/del:scale-110 transition-transform"
-    />
-</button>
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete(e, item);
+                                }}
+                                className="p-1.5 rounded mc-panel bg-[var(--mc-stone)] hover:bg-[var(--mc-redstone)] transition-colors group/del"
+                                title="Delete from Server"
+                                aria-label={`Delete ${item.filename || "video"} from server`}
+                            >
+                                <Trash2
+                                    aria-hidden="true"
+                                    className="w-3 h-3 text-white group-hover/del:scale-110 transition-transform"
+                                />
+                            </button>
                         )}
                         {item.state === "completed" && item.output_url && (
                             <button
-    onClick={(e) => {
-        e.stopPropagation();
-        onDownload(e, item);
-    }}
-    className="p-1.5 rounded mc-panel bg-[var(--mc-stone)] hover:bg-[var(--mc-emerald)] transition-colors group/btn"
-    title="Download Video"
-    aria-label={`Download ${item.filename || "video"}`}
->
-    <Download
-        aria-hidden="true"
-        className="w-3 h-3 text-white group-hover/btn:scale-110 transition-transform"
-    />
-</button>
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDownload(e, item);
+                                }}
+                                className="p-1.5 rounded mc-panel bg-[var(--mc-stone)] hover:bg-[var(--mc-emerald)] transition-colors group/btn"
+                                title="Download Video"
+                                aria-label={`Download ${item.filename || "video"}`}
+                            >
+                                <Download
+                                    aria-hidden="true"
+                                    className="w-3 h-3 text-white group-hover/btn:scale-110 transition-transform"
+                                />
+                            </button>
                         )}
                     </div>
                 </div>
