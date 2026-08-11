@@ -24,9 +24,31 @@ export default function MaskCanvas({
     const [tool, setTool] = useState<"brush" | "eraser">("brush");
     const [bgLoaded, setBgLoaded] = useState(false);
     const [history, setHistory] = useState<ImageData[]>([]);
+    const [maxW, setMaxW] = useState<number>(900);
+
+    // Dynamic maxW calculation based on parent container width
+    const updateMaxW = useCallback(() => {
+        if (containerRef.current) {
+            const containerWidth =
+                containerRef.current.getBoundingClientRect().width ||
+                containerRef.current.clientWidth;
+            const availableW = Math.max(200, containerWidth - 32);
+            setMaxW(Math.min(900, availableW));
+        } else if (typeof window !== "undefined") {
+            const availableW = Math.max(200, window.innerWidth - 32);
+            setMaxW(Math.min(900, availableW));
+        }
+    }, []);
+
+    useEffect(() => {
+        updateMaxW();
+        window.addEventListener("resize", updateMaxW);
+        return () => {
+            window.removeEventListener("resize", updateMaxW);
+        };
+    }, [updateMaxW]);
 
     // Display dimensions (fit within container)
-    const maxW = 900;
     const maxH = 550;
     const scale = Math.min(maxW / width, maxH / height, 1);
     const displayW = Math.round(width * scale);
@@ -95,12 +117,26 @@ export default function MaskCanvas({
         setHistory((prev) => prev.slice(0, -1));
     }, [history]);
 
-    const getPos = (e: React.MouseEvent) => {
+    const getPos = (
+        e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+    ) => {
         const rect = maskCanvasRef.current?.getBoundingClientRect();
         if (!rect) return { x: 0, y: 0 };
+
+        let clientX = 0;
+        let clientY = 0;
+
+        if ("touches" in e && e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else if ("clientX" in e) {
+            clientX = (e as React.MouseEvent<HTMLCanvasElement>).clientX;
+            clientY = (e as React.MouseEvent<HTMLCanvasElement>).clientY;
+        }
+
         return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
+            x: clientX - rect.left,
+            y: clientY - rect.top,
         };
     };
 
@@ -119,20 +155,35 @@ export default function MaskCanvas({
         [tool, brushSize]
     );
 
-    const handleMouseDown = (e: React.MouseEvent) => {
+    const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
         saveStateToHistory();
         setIsDrawing(true);
         const { x, y } = getPos(e);
         draw(x, y);
     };
 
-    const handleMouseMove = (e: React.MouseEvent) => {
+    const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (!isDrawing) return;
         const { x, y } = getPos(e);
         draw(x, y);
     };
 
     const handleMouseUp = () => setIsDrawing(false);
+
+    const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+        saveStateToHistory();
+        setIsDrawing(true);
+        const { x, y } = getPos(e);
+        draw(x, y);
+    };
+
+    const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+        if (!isDrawing) return;
+        const { x, y } = getPos(e);
+        draw(x, y);
+    };
+
+    const handleTouchEnd = () => setIsDrawing(false);
 
     const clearMask = useCallback(() => {
         saveStateToHistory();
@@ -216,7 +267,7 @@ export default function MaskCanvas({
     };
 
     return (
-        <div className="flex flex-col items-center gap-4 p-4 w-full">
+        <div ref={containerRef} className="flex flex-col items-center gap-4 p-4 w-full">
             {/* Toolbar */}
             <div
                 role="toolbar"
@@ -299,7 +350,6 @@ export default function MaskCanvas({
 
             {/* Canvas Area */}
             <div
-                ref={containerRef}
                 className="relative border-2 border-[var(--border-pixel)]"
                 style={{ width: displayW, height: displayH }}
             >
@@ -317,11 +367,16 @@ export default function MaskCanvas({
                     height={displayH}
                     role="img"
                     aria-label="Inpainting mask drawing canvas"
-                    className="absolute top-0 left-0 cursor-crosshair"
+                    className="absolute top-0 left-0 cursor-crosshair touch-none"
+                    style={{ touchAction: "none" }}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
                     onMouseLeave={handleMouseUp}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    onTouchCancel={handleTouchEnd}
                 />
             </div>
 
