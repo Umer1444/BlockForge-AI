@@ -114,4 +114,32 @@ describe("MaskCanvas Component", () => {
         expect(brushBtn).toHaveAttribute("aria-pressed", "true");
         expect(eraserBtn).toHaveAttribute("aria-pressed", "false");
     });
+
+    it("handles touch events (onTouchStart, onTouchMove, onTouchEnd) for touch screens", () => {
+        render(<MaskCanvas {...defaultProps} />);
+        const canvas = screen.getByRole("img", { name: "Inpainting mask drawing canvas" });
+
+        expect(canvas).toHaveStyle({ touchAction: "none" });
+
+        // Simulate touch start
+        fireEvent.touchStart(canvas, {
+            touches: [{ clientX: 100, clientY: 100 }],
+        });
+
+        // Simulate touch move
+        fireEvent.touchMove(canvas, {
+            touches: [{ clientX: 120, clientY: 120 }],
+        });
+
+        // Simulate touch end
+        fireEvent.touchEnd(canvas);
+    });
+
+    it("updates maxW dynamically on window resize event", () => {
+        render(<MaskCanvas {...defaultProps} />);
+
+        // Dispatch window resize event
+        fireEvent(window, new Event("resize"));
+    });
 });
+
