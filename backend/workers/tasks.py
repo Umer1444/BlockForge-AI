@@ -301,7 +301,25 @@ def process_video_task(self, payload: dict) -> dict:
         )
         # ── Cleanup even on failure to save disk space ──
         try:
-            StorageService.cleanup_job(job_id, keep_output=True)
+            StorageService.cleanup_job(job_id, keep_output=False)
         except:
             pass
         raise
+
+from celery.schedules import crontab
+
+celery_app.conf.beat_schedule = {
+    "cleanup-orphaned-jobs": {
+        "task": "blockforge.cleanup_orphaned_jobs",
+        "schedule": crontab(minute=0, hour="*"),
+    },
+}
+
+@celery_app.task(name="blockforge.cleanup_orphaned_jobs")
+def cleanup_orphaned_jobs_task():
+    """Periodic task to detect and clean up orphaned jobs from dead workers."""
+    logger.info("⛏  Running periodic cleanup of orphaned jobs")
+    try:
+        StorageService.cleanup_old_jobs(max_age_hours=24)
+    except Exception as e:
+        logger.error(f"Failed to clean up orphaned jobs: {e}")
