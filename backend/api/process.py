@@ -6,6 +6,8 @@ Extended with Auto-Detection, Hybrid, and Quality Preservation modes.
 import json
 import base64
 import logging
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
@@ -22,6 +24,9 @@ router = APIRouter()
 logger = logging.getLogger("blockforge.process")
 
 batch_manager = BatchJobManager(settings.REDIS_URL)
+
+# Create a ThreadPoolExecutor for CPU/GPU bound tasks
+executor = ThreadPoolExecutor(max_workers=4)
 
 
 class MaskPoint(BaseModel):
@@ -246,29 +251,47 @@ async def preview_auto_detect(job_id: str, request_body: dict = None):
         metadata = json.load(f)
 
     video_path = metadata["file_path"]
+    loop = asyncio.get_running_loop()
 
     # Extract first frame for preview
     extractor = FrameExtractor(video_path, job_id)
-    first_frame_path = extractor.extract_single_frame(0.0)
+    first_frame_path = await loop.run_in_executor(executor, extractor.extract_single_frame, 0.0)
+    
+    # Yield to event loop
+    await asyncio.sleep(0)
 
     # Detect watermarks
     detector = WatermarkDetector()
     text_confidence = request_body.get("text_confidence", 0.5) if request_body else 0.5
     logo_confidence = request_body.get("logo_confidence", 0.4) if request_body else 0.4
 
-    frame = cv2.imread(str(first_frame_path))
-    detections = detector.detect_all_watermarks(
-        frame,
-        text_confidence=text_confidence,
-        logo_confidence=logo_confidence,
-    )
+    # Load image in executor
+    frame = await loop.run_in_executor(executor, cv2.imread, str(first_frame_path))
+
+    # Yield to event loop
+    await asyncio.sleep(0)
+
+    # Detect in executor
+    def run_detection():
+        return detector.detect_all_watermarks(
+            frame,
+            text_confidence=text_confidence,
+            logo_confidence=logo_confidence,
+        )
+
+    detections = await loop.run_in_executor(executor, run_detection)
+
+    # Yield to event loop
+    await asyncio.sleep(0)
 
     # Generate preview with highlights
-    renderer = PreviewRenderer(width=1280, height=720)
-    preview = renderer.render_watermark_highlight(frame, detections, opacity=0.4)
-
-    preview_path = job_dir / "detection_preview.png"
-    renderer.save_preview(preview, preview_path)
+    def run_render_and_save():
+        renderer = PreviewRenderer(width=1280, height=720)
+        preview = renderer.render_watermark_highlight(frame, detections, opacity=0.4)
+        preview_path = job_dir / "detection_preview.png"
+        renderer.save_preview(preview, preview_path)
+    
+    await loop.run_in_executor(executor, run_render_and_save)
 
     detector.cleanup()
 
