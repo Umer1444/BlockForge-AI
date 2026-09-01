@@ -13,6 +13,12 @@ from api.status import router as status_router
 from api.websocket import router as ws_router
 
 import logging
+import multiprocessing
+
+try:
+    multiprocessing.set_start_method('spawn', force=True)
+except RuntimeError:
+    pass
 
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,

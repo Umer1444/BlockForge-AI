@@ -16,18 +16,37 @@ class GPUManager:
     """Manage GPU resources across the processing pipeline."""
 
     def __init__(self):
-        self.cuda_available = torch.cuda.is_available()
-        self.mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+        self._initialized = False
+        self._cuda_available = False
+        self._mps_available = False
+        self.current_device = "cpu"
+        self.device_type = "cpu"
+
+    def _initialize(self):
+        if self._initialized:
+            return
         
-        if self.cuda_available:
+        self._cuda_available = torch.cuda.is_available()
+        self._mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+        
+        if self._cuda_available:
             self.current_device = settings.GPU_DEVICE
             self.device_type = "cuda"
-        elif self.mps_available:
+        elif self._mps_available:
             self.current_device = "mps"
             self.device_type = "mps"
-        else:
-            self.current_device = "cpu"
-            self.device_type = "cpu"
+        
+        self._initialized = True
+
+    @property
+    def cuda_available(self):
+        self._initialize()
+        return self._cuda_available
+
+    @property
+    def mps_available(self):
+        self._initialize()
+        return self._mps_available
 
     def get_info(self) -> dict:
         """Return GPU hardware information."""
