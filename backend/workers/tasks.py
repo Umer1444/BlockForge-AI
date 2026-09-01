@@ -68,6 +68,12 @@ celery_app.conf.update(
     task_track_started=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,  # One task at a time (GPU-bound)
+    beat_schedule={
+        "cleanup-orphaned-jobs-every-12-hours": {
+            "task": "blockforge.cleanup_orphaned_jobs",
+            "schedule": 43200.0,  # 12 hours in seconds
+        },
+    }
 )
 
 
@@ -301,7 +307,39 @@ def process_video_task(self, payload: dict) -> dict:
         )
         # ── Cleanup even on failure to save disk space ──
         try:
-            StorageService.cleanup_job(job_id, keep_output=True)
+            StorageService.cleanup_job(job_id, keep_output=False)
         except:
             pass
         raise
+
+# ── Periodic Orphaned Job Cleanup ───────────────────────
+import shutil
+
+@celery_app.task(name="blockforge.cleanup_orphaned_jobs")
+def cleanup_orphaned_jobs():
+    """Scan upload directory and purge jobs older than 24 hours."""
+    logger.info("Starting periodic cleanup of orphaned jobs...")
+    count = 0
+    now = time.time()
+    
+    upload_dir = settings.UPLOAD_DIR
+    if not upload_dir.exists():
+        return "No upload dir"
+        
+    for job_dir in upload_dir.iterdir():
+        if not job_dir.is_dir():
+            continue
+            
+        try:
+            # Check modification time
+            mtime = job_dir.stat().st_mtime
+            age_hours = (now - mtime) / 3600
+            
+            if age_hours > 24:
+                shutil.rmtree(job_dir, ignore_errors=True)
+                count += 1
+                logger.info(f"Purged orphaned job directory: {job_dir.name}")
+        except Exception as e:
+            logger.warning(f"Failed to check/purge {job_dir.name}: {e}")
+            
+    return f"Purged {count} orphaned jobs"
